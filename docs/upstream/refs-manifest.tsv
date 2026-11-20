@@ -167,7 +167,7 @@ refs/heads/fix/toolbox-tar-paths	b48c58d3b629c9a909ee320596b025c14703aa1a
 refs/heads/fix/triage-bot-context	524d1f70be3984a854dd82ef611012537602025d
 refs/heads/fix/verification-gzip-body	05df40eecbea1faaa9fc6d6c26e67b68e65e0039
 refs/heads/fix/workspace-symlink-confinement	39990fe7e43855bd5e90f691686f1d84c9e8cf1f
-refs/heads/main	ab40834567475c449bb34f84a9aa50a6587cb471
+refs/heads/source/main	ab40834567475c449bb34f84a9aa50a6587cb471
 refs/heads/perf/coverage-graph	30c787d6905785de51ef086c3a6e653ee5ec3f81
 refs/heads/perf/task-archive-blocker	2c514a4cd98c3a515421df33bfd2c7fcf5928655
 refs/heads/perf/task-metrics	c2d1f557c3cb96979fcf184ec40995fb6e21a933
