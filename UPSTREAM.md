@@ -6,7 +6,7 @@ This repository is an independent, non-fork import of [BaaRai/ARTEX](https://git
 - Upstream default branch: `main`
 - Import baseline commit: `ab40834567475c449bb34f84a9aa50a6587cb471`
 - Local immutable-intent reference branch: `source/main`
-- The import snapshot contains 184 upstream branch refs and 4 tags. Their exact names and object IDs are recorded in [docs/upstream/refs-manifest.tsv](docs/upstream/refs-manifest.tsv).
+- The import snapshot contains 184 upstream branch refs and 4 tags. The original upstream `main` ref is preserved at `source/main` because this repository uses `main` as its integration branch; the other 183 upstream branch refs retain their original names. All 4 tag refs are preserved under their original names. Names and object IDs are recorded in [docs/upstream/refs-manifest.tsv](docs/upstream/refs-manifest.tsv).
 
 ## Add the upstream remote to a local clone
 
