@@ -54,6 +54,7 @@ jobs:
           git -C "$repo" show-ref --verify --quiet refs/heads/integration/mcp
           git -C "$repo" show-ref --verify --quiet refs/heads/cloud-runtime
           git -C "$repo" cat-file -e refs/heads/main:LICENSE
+          git -C "$repo" cat-file -e refs/heads/main:scripts/configure-upstream.sh
           git -C "$repo" cat-file -e refs/heads/main:docs/upstream/refs-manifest.tsv
 
           while IFS=$'\t' read -r ref expected; do
