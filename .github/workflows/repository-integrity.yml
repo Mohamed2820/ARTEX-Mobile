@@ -1,0 +1,68 @@
+name: repository-integrity
+
+on:
+  push:
+    branches:
+      - main
+      - source/main
+      - development
+      - android-port
+      - integration/mcp
+      - cloud-runtime
+  pull_request:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  git-integrity:
+    name: Verify imported Git refs and source snapshot
+    runs-on: ubuntu-latest
+    steps:
+      - name: Clone repository refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          git clone --mirror "https://github.com/${GITHUB_REPOSITORY}.git" "${RUNNER_TEMP}/artex-mobile.git"
+
+      - name: Verify Git object database and frozen import refs
+        shell: bash
+        run: |
+          set -euo pipefail
+          repo="${RUNNER_TEMP}/artex-mobile.git"
+          git -C "$repo" fsck --full
+
+          expected_source="ab40834567475c449bb34f84a9aa50a6587cb471"
+          actual_source="$(git -C "$repo" rev-parse --verify refs/heads/source/main)"
+          if [[ "$actual_source" != "$expected_source" ]]; then
+            echo "::error::source/main changed: expected $expected_source, got $actual_source"
+            exit 1
+          fi
+
+          for tag in v0.4.0 v0.5.0 v0.5.1 v0.6.0; do
+            git -C "$repo" show-ref --verify --quiet "refs/tags/$tag" || {
+              echo "::error::Missing imported tag: $tag"
+              exit 1
+            }
+          done
+
+          git -C "$repo" show-ref --verify --quiet refs/heads/development
+          git -C "$repo" show-ref --verify --quiet refs/heads/android-port
+          git -C "$repo" show-ref --verify --quiet refs/heads/integration/mcp
+          git -C "$repo" show-ref --verify --quiet refs/heads/cloud-runtime
+          git -C "$repo" cat-file -e refs/heads/main:LICENSE
+          git -C "$repo" cat-file -e refs/heads/main:docs/upstream/refs-manifest.tsv
+
+          while IFS=$'\t' read -r ref expected; do
+            [[ -z "$ref" || "$ref" == \#* ]] && continue
+            actual="$(git -C "$repo" rev-parse --verify "$ref")"
+            if [[ "$actual" != "$expected" ]]; then
+              echo "::error::Imported ref mismatch: $ref (expected $expected, got $actual)"
+              exit 1
+            fi
+          done < <(git -C "$repo" show main:docs/upstream/refs-manifest.tsv)
+
+          echo "Git object database, source snapshot, branches, tags and imported ref manifest verified."
