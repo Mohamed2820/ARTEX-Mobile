@@ -27,6 +27,59 @@
     },
     {
       "type": "non_fast_forward"
+    },
+    {
+      "type": "required_status_checks",
+      "parameters": {
+        "strict_required_status_checks_policy": true,
+        "do_not_enforce_on_create": false,
+        "required_status_checks": [
+          {
+            "context": "go",
+            "integration_id": 15368
+          },
+          {
+            "context": "go-stable",
+            "integration_id": 15368
+          },
+          {
+            "context": "shell",
+            "integration_id": 15368
+          },
+          {
+            "context": "python",
+            "integration_id": 15368
+          },
+          {
+            "context": "web",
+            "integration_id": 15368
+          },
+          {
+            "context": "CodeQL (go)",
+            "integration_id": 15368
+          },
+          {
+            "context": "CodeQL (python)",
+            "integration_id": 15368
+          },
+          {
+            "context": "CodeQL (javascript-typescript)",
+            "integration_id": 15368
+          },
+          {
+            "context": "Go vulnerability database check",
+            "integration_id": 15368
+          },
+          {
+            "context": "Web dependency audit",
+            "integration_id": 15368
+          },
+          {
+            "context": "Verify imported Git refs and source snapshot",
+            "integration_id": 15368
+          }
+        ]
+      }
     }
   ],
   "bypass_actors": []
