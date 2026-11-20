@@ -1,0 +1,93 @@
+name: dependency-remediation
+
+on:
+  push:
+    branches:
+      - security/dependency-remediation
+
+permissions:
+  contents: write
+  pull-requests: write
+
+jobs:
+  fix-and-verify:
+    if: github.actor != 'github-actions[bot]'
+    runs-on: ubuntu-latest
+    services:
+      postgres:
+        image: postgres:16-alpine
+        env:
+          POSTGRES_USER: artex
+          POSTGRES_PASSWORD: testpass
+          POSTGRES_DB: artextest
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd "pg_isready -U artex"
+          --health-interval 5s
+          --health-timeout 5s
+          --health-retries 10
+    env:
+      ARTEX_PG_DSN: postgres://artex:testpass@localhost:5432/artextest?sslmode=disable
+    steps:
+      - name: Checkout trusted remediation branch
+        uses: actions/checkout@v4
+      - name: Install patched Go toolchain
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.26.11'
+          cache: true
+      - name: Upgrade vulnerable Go dependency and toolchain directive
+        run: |
+          go mod edit -go=1.26.11
+          go get github.com/klauspost/compress@v1.20.2
+          go mod tidy
+      - name: Verify Go build, vet, tests and vulnerability scan
+        run: |
+          go build ./...
+          go vet ./...
+          go test -p 1 ./...
+          go run golang.org/x/vuln/cmd/govulncheck@latest ./...
+      - name: Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+          cache-dependency-path: web/package-lock.json
+      - name: Remediate semver-compatible npm advisories
+        working-directory: web
+        run: |
+          npm ci
+          npm audit fix
+          npm audit --omit=dev --audit-level=high
+          npm audit --audit-level=high
+      - name: Verify web application
+        working-directory: web
+        run: |
+          npx tsc --noEmit
+          npm run test:polling
+          npm run test:replay
+          npm run test:upload
+          npm run test:i18n
+          npm run build:static
+      - name: Commit verified dependency updates
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          git config user.name 'github-actions[bot]'
+          git config user.email '41898282+github-actions[bot]@users.noreply.github.com'
+          git add go.mod go.sum web/package.json web/package-lock.json
+          if git diff --cached --quiet; then
+            echo 'No dependency changes were required.'
+          else
+            git commit -m 'security: upgrade vulnerable dependencies'
+            git push origin HEAD:security/dependency-remediation
+          fi
+          if gh pr view security/dependency-remediation --json number >/dev/null 2>&1; then
+            echo 'Remediation pull request already exists.'
+          else
+            gh pr create --base main --head security/dependency-remediation \
+              --title 'security: remediate Go and npm vulnerabilities' \
+              --body 'Automated, semver-compatible dependency remediation. The workflow only opens this PR after Go build/vet/tests/govulncheck, npm production/full audits, TypeScript checks, web tests and static build all pass.'
+          fi
