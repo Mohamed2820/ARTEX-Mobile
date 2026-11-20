@@ -44,6 +44,7 @@ These rules should be enabled in GitHub **Settings → Rules → Rulesets** (or 
 Importable ruleset files are provided:
 - `docs/github-rulesets/source-main.json` locks the source snapshot against updates, deletion and force pushes.
 - `docs/github-rulesets/main.json` requires pull requests for main, blocks deletion and force pushes, and does not require an approving review (to avoid a single-maintainer deadlock).
+- `docs/github-rulesets/development-branches.json` requires pull requests for the four development branches and blocks deletion and force pushes.
 
 To activate them, open repository **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, import each JSON file, review it, and create it. The rulesets are not active until imported. After the first successful CI run, add the repository's verified CI check names as required status checks to the main ruleset.
 
