@@ -7,7 +7,7 @@ on:
   workflow_dispatch:
 
 permissions:
-  contents: write # required to create the Release
+  contents: read
 
 jobs:
   # ① Frontend static export (once), reused by the cross-compiled platform builds
