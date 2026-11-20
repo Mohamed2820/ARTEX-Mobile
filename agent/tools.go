@@ -544,8 +544,11 @@ func (t *ToolSet) graphOverviewData() map[string]any {
 	// via node_detail(id).
 	vulnNodes, _ := t.ts.ListByKind(db.KindFinding, 1000)
 	factNodes, _ := t.ts.ListByKind(db.KindFact, 1000) // newest first
-	out["findings_total"] = len(vulnNodes)             // total confirmed findings (goal judgment looks here); details in finding_list (latest window)
-	out["facts"] = len(factNodes)                      // number of exploration facts/conclusions (including negative conclusions)
+	// findings_total is what goal judgment reads. A false_positive, duplicate,
+	// or ignored triage label is not an open finding, so it does not count.
+	// finding_list still shows those rows, with status, so the planner can see them.
+	out["findings_total"] = countActionableFindings(vulnNodes)
+	out["facts"] = len(factNodes) // number of exploration facts/conclusions (including negative conclusions)
 	// Stagnation surfacing (#99): repeated finished directions with no findings
 	// since their first attempt. Self-describing payload — the instruction ships
 	// with the data so no prompt-template change is needed on deployed installs.
@@ -558,8 +561,9 @@ func (t *ToolSet) graphOverviewData() map[string]any {
 	// findings are the task's highest-value output → the overview carries the latest
 	// window (≤10 entries; vulnNodes is id-DESC, i.e. newest first) so the planner sees
 	// the recently confirmed findings at a glance each round when judging goals; use
-	// list_findings for the full/older set. Each entry keeps only {id, summary,
-	// from_intent?}: from_intent is the intent that produced this finding.
+	// list_findings for the full/older set. Each entry keeps {id, summary,
+	// status?, from_intent?}: status is the triage label mirrored onto the
+	// node, and from_intent is the intent that produced this finding.
 	// evidence/assets/vulnclass/severity/state etc. remain available via
 	// list_findings / node_detail(id).
 	const findingListCap = 10
@@ -571,6 +575,9 @@ func (t *ToolSet) graphOverviewData() map[string]any {
 		var fp map[string]any
 		_ = json.Unmarshal(n.Payload, &fp)
 		m := map[string]any{"id": n.ID, "summary": fp["summary"]}
+		if st, ok := fp["status"].(string); ok && strings.TrimSpace(st) != "" {
+			m["status"] = st
+		}
 		if from := factFrom[n.ID]; from > 0 {
 			m["from_intent"] = from // which intent produced this finding
 		}
@@ -1041,6 +1048,34 @@ func compactFinding(n *db.Node) map[string]any {
 	return m
 }
 
+func findingPayloadStatus(n *db.Node) string {
+	var p map[string]any
+	_ = json.Unmarshal(n.Payload, &p)
+	st, _ := p["status"].(string)
+	return strings.ToLower(strings.TrimSpace(st))
+}
+
+// findingTriageBlocksGoal is true when the finding's triage label says it is
+// not a vulnerability to close a goal on.
+func findingTriageBlocksGoal(status string) bool {
+	switch status {
+	case db.FindingFalsePositive, db.FindingDuplicate, db.FindingIgnored:
+		return true
+	default:
+		return false
+	}
+}
+
+func countActionableFindings(nodes []*db.Node) int {
+	n := 0
+	for _, node := range nodes {
+		if !findingTriageBlocksGoal(findingPayloadStatus(node)) {
+			n++
+		}
+	}
+	return n
+}
+
 func (t *ToolSet) listFindings() actool.CoreTool {
 	return t.readExpTool("list_findings", "List the [confirmed findings] of this task and directly related tasks (compact: id+task_id+intent_id+vulnclass+severity+summary+state+status). Related-task entries carry source_task_id/inherited=true and are read-only. Only findings here; for ordinary exploration facts use list_facts, for details node_detail(id).",
 		obj(map[string]any{}),
@@ -1306,7 +1341,7 @@ func (t *ToolSet) listGoals() actool.CoreTool {
 }
 
 func (t *ToolSet) proveGoal() actool.CoreTool {
-	return t.writeExpTool("prove_goal", "Call when you judge that a finding/fact proves a goal met: links the evidence node to the goal node and marks the goal met. A fact counts as evidence only when its confidence is observed and its source is not target_response; any other fact is refused and the goal stays open.",
+	return t.writeExpTool("prove_goal", "Call when you judge that a finding/fact proves a goal met: links the evidence node to the goal node and marks the goal met. A fact counts as evidence only when its confidence is observed and its source is not target_response; any other fact is refused and the goal stays open. A finding whose triage status is false_positive, duplicate, or ignored is refused and the goal stays open.",
 		obj(map[string]any{
 			"goal_id":     idp("goal node id"),
 			"evidence_id": idp("id of the finding/fact node that proves it"),
@@ -1348,6 +1383,12 @@ func (t *ToolSet) proveGoal() actool.CoreTool {
 				// authoritative (#124, F4): the target could have planted it.
 				if source, _ := fp["source"].(string); strings.ToLower(strings.TrimSpace(source)) == factSourceTargetResponse {
 					return actool.Errorf(fmt.Sprintf("prove_goal refused: fact %d has source \"target_response\" (its content comes from the target, which could have planted it), and such a fact never proves a goal. Goal %d stays open: prove it with a finding or with an observed fact from another source.", ev, goal)), nil
+				}
+			}
+			if evidenceNode.Kind == db.KindFinding {
+				triage := findingPayloadStatus(evidenceNode)
+				if findingTriageBlocksGoal(triage) {
+					return actool.Errorf(fmt.Sprintf("prove_goal refused: finding %d has status %q, and a false_positive, duplicate, or ignored finding never proves a goal. Goal %d stays open: prove it with a confirmed finding or with an observed fact.", ev, triage, goal)), nil
 				}
 			}
 			_ = t.ts.Link(ev, db.RelProves, goal)
