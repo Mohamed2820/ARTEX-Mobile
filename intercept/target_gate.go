@@ -208,13 +208,11 @@ func (c *targetCheck) run(targets []Target) ([]TargetRequest, TargetResult) {
 
 	i.mu.RLock()
 	proxied := i.upstreamProxy
-	toolProxy := i.toolProxy
 	i.mu.RUnlock()
-	// Behind a proxy the proxy chooses the address it connects to, so every pin
-	// is name-only for this call, whatever the pin row says: the proxy can be
-	// turned on after a pin was approved. The recording proxy, the global egress
-	// proxy and a custom tool's own proxy all count.
-	nameOnly := (proxied != nil && proxied()) || (toolProxy != nil && toolProxy(c.tool))
+	// Behind the upstream proxy the proxy chooses the address it connects to, so
+	// every pin is name-only for this call, whatever the pin row says: the proxy
+	// can be turned on after a pin was approved.
+	nameOnly := proxied != nil && proxied()
 
 	var unpinned []TargetRequest
 	var uses []func()

@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import { Bot, PlusIcon, Trash2Icon } from "lucide-react";
 
@@ -38,7 +39,6 @@ import {
 } from "@/components/ui/alert-dialog";
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet";
 import { AgentEditor } from "@/components/agent-editor";
-import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Agent } from "@/lib/types";
 
@@ -53,13 +53,14 @@ function AgentGridCard({
   onOpen: () => void;
   onDeleted: () => void;
 }) {
+  const t = useTranslations("agents");
   async function del() {
     try {
       await api.deleteAgent(agent.key);
-      toast.success(t('Agent "{name}" deleted', { name: agent.name }));
+      toast.success(t("toasts.deleted", { name: agent.name }));
       onDeleted();
     } catch (e) {
-      toast.error(t("Delete failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.deleteFailed", { message: (e as Error).message }));
     }
   }
   return (
@@ -71,26 +72,26 @@ function AgentGridCard({
           <span className="text-muted-foreground font-mono text-xs">{agent.key}</span>
           {agent.builtin ? (
             <Badge variant="secondary" className="px-1.5 py-0 text-[10px]">
-              {t("Built-in")}
+              {t("badges.builtin")}
             </Badge>
           ) : (
             <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-              {t("Custom")}
+              {t("badges.custom")}
             </Badge>
           )}
           {!agent.enabled && (
             <Badge variant="outline" className="text-destructive px-1.5 py-0 text-[10px]">
-              {t("Disabled")}
+              {t("badges.disabled")}
             </Badge>
           )}
         </div>
         <p className="text-muted-foreground line-clamp-2 min-h-8 text-xs">
-          {agent.description || t("(no description)")}
+          {agent.description || t("noDescription")}
         </p>
         <div className="text-muted-foreground flex flex-wrap gap-1.5 text-[10px]">
-          <span className="rounded border px-1.5 py-0.5">MCP {agent.mcp_count ?? 0}</span>
-          <span className="rounded border px-1.5 py-0.5">{t("Skill {count}", { count: agent.skill_count ?? 0 })}</span>
-          <span className="rounded border px-1.5 py-0.5">{t("Tools {count}", { count: agent.tool_count ?? 0 })}</span>
+          <span className="rounded border px-1.5 py-0.5">{t("stats.mcp", { count: agent.mcp_count ?? 0 })}</span>
+          <span className="rounded border px-1.5 py-0.5">{t("stats.skill", { count: agent.skill_count ?? 0 })}</span>
+          <span className="rounded border px-1.5 py-0.5">{t("stats.tools", { count: agent.tool_count ?? 0 })}</span>
         </div>
       </button>
       {!agent.builtin && (
@@ -100,21 +101,20 @@ function AgentGridCard({
               variant="ghost"
               size="icon-sm"
               className="text-muted-foreground hover:text-destructive absolute top-2 right-2 opacity-0 transition-opacity group-hover:opacity-100"
-              aria-label={t("Delete agent")}
             >
               <Trash2Icon className="size-3.5" />
             </Button>
           </AlertDialogTrigger>
           <AlertDialogContent>
             <AlertDialogHeader>
-              <AlertDialogTitle>{t('Delete agent "{name}"?', { name: agent.name })}</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title", { name: agent.name })}</AlertDialogTitle>
               <AlertDialogDescription>
-                {t("This also deletes its prompt, variables, visibility and tool bindings. This action cannot be undone.")}
+                {t("deleteDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-              <AlertDialogAction onClick={del}>{t("Delete")}</AlertDialogAction>
+              <AlertDialogCancel>{t("deleteDialog.cancel")}</AlertDialogCancel>
+              <AlertDialogAction onClick={del}>{t("deleteDialog.confirm")}</AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
         </AlertDialog>
@@ -124,6 +124,7 @@ function AgentGridCard({
 }
 
 function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) {
+  const t = useTranslations("agents");
   const [open, setOpen] = React.useState(false);
   const [key, setKey] = React.useState("");
   const [name, setName] = React.useState("");
@@ -134,14 +135,14 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
     setBusy(true);
     try {
       const a = await api.createAgent(key.trim(), name.trim(), description.trim());
-      toast.success(t('Agent "{name}" created', { name: a.name }));
+      toast.success(t("toasts.created", { name: a.name }));
       setOpen(false);
       setKey("");
       setName("");
       setDescription("");
       onCreated(a.key);
     } catch (e) {
-      toast.error(t("Create failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.createFailed", { message: (e as Error).message }));
     } finally {
       setBusy(false);
     }
@@ -154,48 +155,44 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
     <Dialog open={open} onOpenChange={setOpen}>
       <DialogTrigger asChild>
         <Button size="sm">
-          <PlusIcon /> {t("Create agent")}
+          <PlusIcon /> {t("createButton")}
         </Button>
       </DialogTrigger>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("Create custom agent")}</DialogTitle>
+          <DialogTitle>{t("createDialog.title")}</DialogTitle>
           <DialogDescription>
-            {t(
-              "Create a conversational assistant. The key is the internal identifier and cannot change after creation; the name and description are for identification.",
-            )}
+            {t("createDialog.description")}
           </DialogDescription>
         </DialogHeader>
         <div className="grid gap-4 py-2">
           <div className="grid gap-1.5">
-            <Label htmlFor="agent-key">{t("Key")}</Label>
+            <Label htmlFor="agent-key">{t("createDialog.keyLabel")}</Label>
             <Input
               id="agent-key"
-              placeholder={t("e.g. research_helper")}
+              placeholder={t("createDialog.keyPlaceholder")}
               value={key}
               onChange={(e) => setKey(e.target.value)}
               className="font-mono"
             />
             {key.length > 0 && !keyOk && (
-              <span className="text-destructive text-xs">
-                {t("Must start with a lowercase letter; only lowercase letters/digits/underscores")}
-              </span>
+              <span className="text-destructive text-xs">{t("createDialog.keyError")}</span>
             )}
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="agent-name">{t("Name")}</Label>
+            <Label htmlFor="agent-name">{t("createDialog.nameLabel")}</Label>
             <Input
               id="agent-name"
-              placeholder={t("e.g. Research assistant")}
+              placeholder={t("createDialog.namePlaceholder")}
               value={name}
               onChange={(e) => setName(e.target.value)}
             />
           </div>
           <div className="grid gap-1.5">
-            <Label htmlFor="agent-desc">{t("Description")}</Label>
+            <Label htmlFor="agent-desc">{t("createDialog.descLabel")}</Label>
             <Textarea
               id="agent-desc"
-              placeholder={t("One line on what this agent does")}
+              placeholder={t("createDialog.descPlaceholder")}
               rows={2}
               value={description}
               onChange={(e) => setDescription(e.target.value)}
@@ -204,7 +201,7 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
         </div>
         <DialogFooter>
           <Button onClick={create} disabled={!canCreate}>
-            {t("Create")}
+            {t("createDialog.submit")}
           </Button>
         </DialogFooter>
       </DialogContent>
@@ -213,6 +210,7 @@ function CreateAgentDialog({ onCreated }: { onCreated: (key: string) => void }) 
 }
 
 export default function AgentsPage() {
+  const t = useTranslations("agents");
   const [agents, setAgents] = React.useState<Agent[]>([]);
   const [editKey, setEditKey] = React.useState<string | null>(null);
 
@@ -229,9 +227,9 @@ export default function AgentsPage() {
     <div className="flex flex-1 flex-col gap-4 md:gap-6">
       <div className="flex items-start justify-between gap-3">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("Agent")}</h1>
+          <h1 className="text-xl font-semibold tracking-tight">{t("page.title")}</h1>
           <p className="text-muted-foreground text-sm">
-            {t("Prompts/configs for built-in agents, plus creating and managing custom conversational agents")}
+            {t("page.subtitle")}
           </p>
         </div>
         <CreateAgentDialog
@@ -244,12 +242,12 @@ export default function AgentsPage() {
 
       <Card>
         <CardHeader>
-          <CardTitle>{t("Agent list")}</CardTitle>
-          <CardDescription>{t("{count} total", { count: agents.length })}</CardDescription>
+          <CardTitle>{t("list.title")}</CardTitle>
+          <CardDescription>{t("list.total", { count: agents.length })}</CardDescription>
         </CardHeader>
         <CardContent>
           {agents.length === 0 ? (
-            <p className="text-muted-foreground py-6 text-center text-sm">{t("(no agents)")}</p>
+            <p className="text-muted-foreground py-6 text-center text-sm">{t("list.empty")}</p>
           ) : (
             <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
               {agents.map((a) => (
@@ -273,13 +271,11 @@ export default function AgentsPage() {
                   <span className="text-muted-foreground font-mono text-xs">{editing.key}</span>
                   {!editing.builtin && (
                     <Badge variant="outline" className="px-1.5 py-0 text-[10px]">
-                      {t("Custom")}
+                      {t("badges.custom")}
                     </Badge>
                   )}
                 </SheetTitle>
-                <SheetDescription>
-                  {editing.description || t("Prompt, config, visible resources and tool bindings")}
-                </SheetDescription>
+                <SheetDescription>{editing.description || t("sheet.descriptionFallback")}</SheetDescription>
               </SheetHeader>
               <AgentEditor agentKey={editing.key} onSaved={reload} />
             </>

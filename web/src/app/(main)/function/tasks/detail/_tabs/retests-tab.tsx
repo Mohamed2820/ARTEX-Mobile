@@ -5,6 +5,7 @@ import * as React from "react";
 import Link from "next/link";
 
 import { ArrowUpRightIcon, ChevronLeftIcon, ChevronRightIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { FindingRetestPanel } from "@/components/finding-retest-panel";
 import { StatusBadge } from "@/components/status-badge";
@@ -14,14 +15,13 @@ import { Card, CardContent, CardDescription, CardFooter, CardHeader, CardTitle }
 import { Empty, EmptyDescription, EmptyHeader, EmptyTitle } from "@/components/ui/empty";
 import { Separator } from "@/components/ui/separator";
 import { Skeleton } from "@/components/ui/skeleton";
-import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import type { Finding, FindingsPage } from "@/lib/types";
 
 const PAGE_SIZE = 20;
 
 function findingLabel(finding: Finding) {
-  return finding.name?.trim() || finding.vulnclass.trim() || t("Uncategorized");
+  return finding.name?.trim() || finding.vulnclass.trim() || "Uncategorized";
 }
 
 export function RetestsTab({ taskId }: { taskId: string }) {
@@ -31,6 +31,7 @@ export function RetestsTab({ taskId }: { taskId: string }) {
   const [error, setError] = React.useState("");
   const [refreshVersion, setRefreshVersion] = React.useState(0);
   const refresh = React.useCallback(() => setRefreshVersion((version) => version + 1), []);
+  const t = useTranslations("tasksMisc");
 
   // Only this task's own findings, including those without graph nodes.
   // Fetch history only for the selection, and wait for each poll to finish.
@@ -74,9 +75,9 @@ export function RetestsTab({ taskId }: { taskId: string }) {
       {error ? (
         <Alert variant="destructive">
           <AlertDescription>
-            {t("Failed to load task vulnerabilities: {error}", { error })}
+            {t("retests.loadFailed", { error })}
             <Button variant="outline" size="sm" onClick={refresh}>
-              {t("Retry")}
+              {t("retests.retry")}
             </Button>
           </AlertDescription>
         </Alert>
@@ -84,8 +85,11 @@ export function RetestsTab({ taskId }: { taskId: string }) {
       <div className="grid items-start gap-4 lg:grid-cols-[minmax(16rem,22rem)_minmax(0,1fr)]">
         <Card className="min-w-0">
           <CardHeader>
-            <CardTitle>{t("Select a vulnerability")}{data ? ` · ${data.total}` : ""}</CardTitle>
-            <CardDescription>{t("View retest history for this task's vulnerabilities, or start a new retest.")}</CardDescription>
+            <CardTitle>
+              {t("retests.selectVulnerability")}
+              {data ? ` · ${data.total}` : ""}
+            </CardTitle>
+            <CardDescription>{t("retests.description")}</CardDescription>
           </CardHeader>
           <CardContent className="flex max-h-[32rem] flex-col overflow-y-auto">
             {!loaded && !error ? <Skeleton className="h-24 w-full" /> : null}
@@ -95,7 +99,7 @@ export function RetestsTab({ taskId }: { taskId: string }) {
                 <Button
                   variant={finding.id === selectedId ? "secondary" : "ghost"}
                   className="h-auto w-full shrink-0 flex-col items-start gap-2 whitespace-normal py-3 text-left"
-                  aria-label={t("Select vulnerability: {name}", { name: findingLabel(finding) })}
+                  aria-label={t("retests.selectAria", { name: findingLabel(finding) })}
                   aria-pressed={finding.id === selectedId}
                   onClick={() => setSelectedId(finding.id)}
                 >
@@ -110,8 +114,8 @@ export function RetestsTab({ taskId }: { taskId: string }) {
             {loaded && findings.length === 0 ? (
               <Empty>
                 <EmptyHeader>
-                  <EmptyTitle>{t("No vulnerabilities to retest")}</EmptyTitle>
-                  <EmptyDescription>{t("Once this task discovers vulnerabilities, you can manually start a retest here.")}</EmptyDescription>
+                  <EmptyTitle>{t("retests.emptyTitle")}</EmptyTitle>
+                  <EmptyDescription>{t("retests.emptyDescription")}</EmptyDescription>
                 </EmptyHeader>
               </Empty>
             ) : null}
@@ -121,19 +125,19 @@ export function RetestsTab({ taskId }: { taskId: string }) {
               <Button
                 variant="outline"
                 size="icon-sm"
-                aria-label={t("Previous page of vulnerabilities")}
+                aria-label={t("retests.previousPage")}
                 disabled={page === 1}
                 onClick={() => setPage(page - 1)}
               >
                 <ChevronLeftIcon />
               </Button>
               <span className="text-muted-foreground text-xs">
-                {t("Page {page} / {total}", { page, total: Math.ceil(data.total / PAGE_SIZE) })}
+                {t("retests.pageIndicator", { page, total: Math.ceil(data.total / PAGE_SIZE) })}
               </span>
               <Button
                 variant="outline"
                 size="icon-sm"
-                aria-label={t("Next page of vulnerabilities")}
+                aria-label={t("retests.nextPage")}
                 disabled={page * PAGE_SIZE >= data.total}
                 onClick={() => setPage(page + 1)}
               >
@@ -149,7 +153,7 @@ export function RetestsTab({ taskId }: { taskId: string }) {
                 <h2 className="min-w-0 flex-1 break-words font-medium">{findingLabel(selected)}</h2>
                 <Button asChild variant="ghost" size="sm">
                   <Link href={`/function/findings/detail?id=${selected.finding_id || selected.id}`}>
-                    {t("Vulnerability details")} <ArrowUpRightIcon data-icon="inline-end" />
+                    {t("retests.vulnerabilityDetails")} <ArrowUpRightIcon data-icon="inline-end" />
                   </Link>
                 </Button>
               </div>

@@ -3,6 +3,7 @@
 import { type ReactNode, useEffect, useRef, useState } from "react";
 
 import { ArrowUpIcon, MessageCircleQuestionIcon, SquareIcon, Trash2Icon, XIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Markdown } from "@/components/markdown";
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -25,25 +26,25 @@ import { ResizableHandle, ResizablePanel, ResizablePanelGroup } from "@/componen
 import { Skeleton } from "@/components/ui/skeleton";
 import { useIsMobile } from "@/hooks/use-mobile";
 import type { SideQuestions } from "@/hooks/use-side-questions";
-import { intlLocale, t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 type ComposerLayout = "inline" | "stacked";
 
 const preparationLabels = {
-  preparing: t("Preparing context…"),
-  summarizing_history: t("Summarizing earlier side Q&A…"),
-  compressing_snapshot: t("Compressing the side-question context copy…"),
-  retrying: t("Model context exceeded, shrinking and retrying…"),
-  answering: t("Answering…"),
+  preparing: "Preparing context…",
+  summarizing_history: "Summarizing earlier side Q&A…",
+  compressing_snapshot: "Compressing the side-question context copy…",
+  retrying: "Model context exceeded, shrinking and retrying…",
+  answering: "Answering…",
 };
 
 export function SideQuestionButton({ side }: { side: SideQuestions }) {
+  const t = useTranslations("sideQuestionWorkspace");
   if (!side.enabled) return null;
   return (
-    <Button variant="outline" size="sm" onClick={() => side.setOpen(true)} title={t("/btw side question")}>
+    <Button variant="outline" size="sm" onClick={() => side.setOpen(true)} title={t("button.title")}>
       <MessageCircleQuestionIcon data-icon="inline-start" />
-      {t("Side question")}
+      {t("button.label")}
     </Button>
   );
 }
@@ -57,6 +58,7 @@ function SidePanel({
   label: string;
   composerLayout: ComposerLayout;
 }) {
+  const t = useTranslations("sideQuestionWorkspace");
   const inlineComposer = composerLayout === "inline";
   const [confirm, setConfirm] = useState(false);
   const viewport = useRef<HTMLDivElement>(null);
@@ -67,18 +69,18 @@ function SidePanel({
     if (pinned.current && viewport.current) viewport.current.scrollTop = viewport.current.scrollHeight;
   }, [tail?.answer, tail?.id]);
   const status = {
-    running: t("Answering"),
-    completed: t("Completed"),
-    failed: t("Failed"),
-    cancelled: t("Stopped"),
-    interrupted: t("Interrupted"),
+    running: t("status.running"),
+    completed: t("status.completed"),
+    failed: t("status.failed"),
+    cancelled: t("status.cancelled"),
+    interrupted: t("status.interrupted"),
   };
   return (
-    <section className="flex h-full min-h-0 flex-col bg-background" aria-label={t("Side question panel")}>
+    <section className="flex h-full min-h-0 flex-col bg-background" aria-label={t("panel.ariaLabel")}>
       <div className="flex items-center gap-2 border-b p-3">
         <div className="min-w-0 flex-1">
           <p className="font-medium">
-            {t("Side question")} <span className="text-muted-foreground">/btw</span>
+            {t.rich("panel.heading", { btw: (chunks) => <span className="text-muted-foreground">{chunks}</span> })}
           </p>
           <p className="truncate text-muted-foreground text-xs">{label}</p>
         </div>
@@ -87,11 +89,16 @@ function SidePanel({
           size="icon-sm"
           onClick={() => setConfirm(true)}
           disabled={!side.items.length || side.busy}
-          aria-label={t("Clear side-question history")}
+          aria-label={t("panel.clearHistoryAriaLabel")}
         >
           <Trash2Icon />
         </Button>
-        <Button variant="ghost" size="icon-sm" onClick={() => side.setOpen(false)} aria-label={t("Close side-question panel")}>
+        <Button
+          variant="ghost"
+          size="icon-sm"
+          onClick={() => side.setOpen(false)}
+          aria-label={t("panel.closeAriaLabel")}
+        >
           <XIcon />
         </Button>
       </div>
@@ -99,10 +106,10 @@ function SidePanel({
         {side.snapshot ? (
           <>
             <p>{side.snapshot.model.model}</p>
-            <p>{t("Context updated {time}", { time: new Date(side.snapshot.captured_at).toLocaleString(intlLocale) })}</p>
+            <p>{t("snapshot.contextUpdated", { time: new Date(side.snapshot.captured_at).toLocaleString() })}</p>
           </>
         ) : (
-          t("Ask anytime after the main agent's first run")
+          t("snapshot.waiting")
         )}
       </div>
       <div
@@ -115,15 +122,15 @@ function SidePanel({
       >
         {side.nextCursor > 0 && (
           <Button variant="ghost" size="sm" onClick={() => void side.load(side.nextCursor)}>
-            {t("Load earlier side Q&A")}
+            {t("loadEarlier")}
           </Button>
         )}
         {side.loading && <Skeleton className="h-16 w-full" />}
         {!side.loading && side.items.length === 0 && (
           <Empty>
             <EmptyHeader>
-              <EmptyTitle>{t("Ask a question anytime")}</EmptyTitle>
-              <EmptyDescription>{t("Answered from the current agent's context while the main task keeps running.")}</EmptyDescription>
+              <EmptyTitle>{t("empty.title")}</EmptyTitle>
+              <EmptyDescription>{t("empty.description")}</EmptyDescription>
             </EmptyHeader>
           </Empty>
         )}
@@ -134,21 +141,23 @@ function SidePanel({
               <div className="flex flex-wrap items-center gap-2 text-muted-foreground text-xs">
                 <Badge variant="secondary">{status[item.status]}</Badge>
                 <span className="truncate">{item.model.model}</span>
-                <time dateTime={item.snapshot_at} title={new Date(item.snapshot_at).toLocaleString(intlLocale)}>
-                  {t("Context {time}", { time: new Date(item.snapshot_at).toLocaleTimeString(intlLocale) })}
+                <time dateTime={item.snapshot_at} title={new Date(item.snapshot_at).toLocaleString()}>
+                  {t("item.contextTime", { time: new Date(item.snapshot_at).toLocaleTimeString() })}
                 </time>
               </div>
               {item.context?.estimated_input_tokens != null && (
                 <p className="text-muted-foreground text-xs">
-                  {t("Last {count} Q&A exchanges verbatim", { count: item.context.recent_exchanges })}
-                  {item.context.history_summarized && ` · ${t("earlier Q&A summarized")}`}
-                  {item.context.snapshot_summarized && ` · ${t("uses the main-context digest")}`}
+                  {t("item.recentExchanges", { count: item.context.recent_exchanges })}
+                  {item.context.history_summarized && t("item.historySummarized")}
+                  {item.context.snapshot_summarized && t("item.snapshotSummarized")}
                 </p>
               )}
               {item.answer && <Markdown text={item.answer} />}
               {!item.answer && item.status === "running" && (
                 <p role="status" className="text-muted-foreground text-sm">
-                  {preparationLabels[item.context?.phase ?? "answering"]}
+                  {t.has(`preparationLabels.${item.context?.phase ?? "answering"}`)
+                    ? t(`preparationLabels.${item.context?.phase ?? "answering"}`)
+                    : preparationLabels[item.context?.phase ?? "answering"]}
                 </p>
               )}
               {item.error && (
@@ -170,8 +179,8 @@ function SidePanel({
           <InputGroupTextarea
             rows={1}
             className={cn("overflow-y-auto", inlineComposer ? "max-h-40 min-h-0" : "max-h-36 min-h-9")}
-            aria-label={t("Side question")}
-            placeholder={t("Ask about the current context…")}
+            aria-label={t("composer.ariaLabel")}
+            placeholder={t("composer.placeholder")}
             value={side.draft}
             maxLength={4000}
             disabled={side.busy}
@@ -184,14 +193,14 @@ function SidePanel({
             }}
           />
           <InputGroupAddon align={inlineComposer ? "inline-end" : "block-end"}>
-            {!inlineComposer && <span className="text-muted-foreground text-xs">{t("Standalone Q&A · No tool execution")}</span>}
+            {!inlineComposer && <span className="text-muted-foreground text-xs">{t("composer.note")}</span>}
             {side.running ? (
               <InputGroupButton
                 className="ml-auto"
                 variant="destructive"
                 size="icon-xs"
                 onClick={() => void side.stop()}
-                aria-label={t("Stop the side answer")}
+                aria-label={t("composer.stopAriaLabel")}
               >
                 <SquareIcon />
               </InputGroupButton>
@@ -202,7 +211,7 @@ function SidePanel({
                 size="icon-xs"
                 onClick={() => void side.ask(side.draft)}
                 disabled={side.busy || !side.draft.trim() || !side.snapshot?.available}
-                aria-label={t("Send side question")}
+                aria-label={t("composer.sendAriaLabel")}
               >
                 <ArrowUpIcon />
               </InputGroupButton>
@@ -211,21 +220,17 @@ function SidePanel({
         </InputGroup>
       </div>
       {inlineComposer && (
-        <div className="shrink-0 truncate px-3 pt-0.5 pb-1 text-muted-foreground text-xs">{t("Standalone Q&A · No tool execution")}</div>
+        <div className="shrink-0 truncate px-3 pt-0.5 pb-1 text-muted-foreground text-xs">{t("composer.note")}</div>
       )}
       <AlertDialog open={confirm} onOpenChange={setConfirm}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t("Clear side-question history?")}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t(
-                "Deletes this agent's side Q&A and stops any answer still being generated. The main session and context snapshot are kept.",
-              )}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("clearDialog.title")}</AlertDialogTitle>
+            <AlertDialogDescription>{t("clearDialog.description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
-            <AlertDialogAction onClick={() => void side.clear()}>{t("Clear history")}</AlertDialogAction>
+            <AlertDialogCancel>{t("clearDialog.cancel")}</AlertDialogCancel>
+            <AlertDialogAction onClick={() => void side.clear()}>{t("clearDialog.confirm")}</AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
       </AlertDialog>
@@ -244,6 +249,7 @@ export function SideQuestionWorkspace({
   children: ReactNode;
   composerLayout?: ComposerLayout;
 }) {
+  const t = useTranslations("sideQuestionWorkspace");
   const mobile = useIsMobile();
   return (
     <>
@@ -263,8 +269,8 @@ export function SideQuestionWorkspace({
       <Drawer open={mobile && side.open && side.enabled} onOpenChange={side.setOpen}>
         <DrawerContent className="h-[85svh]">
           <DrawerHeader className="sr-only">
-            <DrawerTitle>{t("Side question")}</DrawerTitle>
-            <DrawerDescription>{t("Standalone Q&A for {label}", { label })}</DrawerDescription>
+            <DrawerTitle>{t("workspace.drawerTitle")}</DrawerTitle>
+            <DrawerDescription>{t("workspace.drawerDescription", { label })}</DrawerDescription>
           </DrawerHeader>
           <SidePanel side={side} label={label} composerLayout={composerLayout} />
         </DrawerContent>

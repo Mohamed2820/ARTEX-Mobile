@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { EllipsisVertical, KeyRound, LogOut } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import {
@@ -14,7 +15,6 @@ import {
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu";
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
-import { t } from "@/i18n";
 import { auth } from "@/lib/auth";
 import { getInitials } from "@/lib/utils";
 
@@ -30,6 +30,7 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const t = useTranslations("chrome");
   const [pwOpen, setPwOpen] = React.useState(false);
 
   function handleLogout() {
@@ -80,12 +81,12 @@ export function NavUser({
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={() => setPwOpen(true)}>
               <KeyRound />
-              {t("Change password")}
+              {t("account.changePassword")}
             </DropdownMenuItem>
             <DropdownMenuSeparator />
             <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive">
               <LogOut />
-              {t("Sign out")}
+              {t("account.signOut")}
             </DropdownMenuItem>
           </DropdownMenuContent>
         </DropdownMenu>

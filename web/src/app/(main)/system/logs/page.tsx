@@ -1,13 +1,13 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { Input } from "@/components/ui/input";
 import { Button } from "@/components/ui/button";
 import { sseUrl } from "@/lib/api";
 import { MOCK } from "@/lib/mock/enabled";
 import type { LogLine } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { t } from "@/i18n";
 
 // Mock demo: no backend SSE, so stuff in a few sample log lines.
 const MOCK_LOGS: LogLine[] = [
@@ -38,6 +38,7 @@ function fmtTime(ts: string) {
 }
 
 export default function LogsPage() {
+  const t = useTranslations("logs");
   const [lines, setLines] = React.useState<LogLine[]>([]);
   const [q, setQ] = React.useState("");
   const [level, setLevel] = React.useState<"all" | LogLine["level"]>("all");
@@ -143,13 +144,13 @@ export default function LogsPage() {
   return (
     <div className="flex flex-1 flex-col gap-3">
       <div>
-        <h1 className="text-xl font-semibold tracking-tight">{t("System logs")}</h1>
-        <p className="text-muted-foreground text-sm">{t("Live backend log stream (planner / worker / database / traffic …)")}</p>
+        <h1 className="text-xl font-semibold tracking-tight">{t("title")}</h1>
+        <p className="text-muted-foreground text-sm">{t("subtitle")}</p>
       </div>
       <div className="flex flex-1 flex-col gap-3">
         <div className="flex flex-wrap items-center gap-2">
           <Input
-            placeholder={t("Filter (text / tag)…")}
+            placeholder={t("filterPlaceholder")}
             value={q}
             onChange={(e) => setQ(e.target.value)}
             className="h-8 max-w-xs"
@@ -163,7 +164,7 @@ export default function LogsPage() {
                 className="h-8"
                 onClick={() => setLevel(lv)}
               >
-                {lv === "all" ? t("All") : t(lv)}
+                {lv === "all" ? t("filter.all") : lv}
               </Button>
             ))}
           </div>
@@ -173,15 +174,15 @@ export default function LogsPage() {
             className="h-8"
             onClick={() => setPaused((p) => !p)}
           >
-            {paused ? t("Paused") : t("Pause")}
+            {paused ? t("buttons.paused") : t("buttons.pause")}
           </Button>
           <Button size="sm" variant="outline" className="h-8" onClick={() => setLines([])}>
-            {t("Clear")}
+            {t("buttons.clear")}
           </Button>
           <span className="ml-auto text-xs text-muted-foreground">
-            {t("{count} lines", { count: counts.total })} ·{" "}
-            <span className="text-amber-600 dark:text-amber-400">{t("{count} warnings", { count: counts.warn })}</span> ·{" "}
-            <span className="text-red-600 dark:text-red-400">{t("{count} errors", { count: counts.error })}</span>
+            {t("stats.lines", { count: counts.total })} ·{" "}
+            <span className="text-amber-600 dark:text-amber-400">{t("stats.warnings", { count: counts.warn })}</span> ·{" "}
+            <span className="text-red-600 dark:text-red-400">{t("stats.errors", { count: counts.error })}</span>
           </span>
         </div>
 
@@ -201,12 +202,12 @@ export default function LogsPage() {
                 disabled={loadingHistory}
                 onClick={loadOlderHistory}
               >
-                {loadingHistory ? t("Loading…") : t("Load older logs")}
+                {loadingHistory ? t("history.loading") : t("history.loadOlder")}
               </Button>
             </div>
           )}
           {filtered.length === 0 ? (
-            <p className="py-10 text-center text-muted-foreground">{t("No logs yet.")}</p>
+            <p className="py-10 text-center text-muted-foreground">{t("empty")}</p>
           ) : (
             filtered.map((l) => {
               const body =

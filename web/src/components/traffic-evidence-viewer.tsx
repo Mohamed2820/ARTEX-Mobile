@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { HttpCodeBlock } from "@/components/http-code-block";
@@ -12,7 +13,6 @@ import { Skeleton } from "@/components/ui/skeleton";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { api } from "@/lib/api";
 import type { FindingTrafficDetail, TrafficDetail } from "@/lib/types";
-import { intlLocale, t } from "@/i18n";
 
 export function TrafficEvidenceViewer({
   findingId,
@@ -25,6 +25,7 @@ export function TrafficEvidenceViewer({
   contextTask?: string;
   onClose: () => void;
 }) {
+  const t = useTranslations("trafficEvidenceViewer");
   const [detail, setDetail] = React.useState<FindingTrafficDetail | null>(null);
   const [error, setError] = React.useState("");
   const [busy, setBusy] = React.useState(false);
@@ -57,7 +58,7 @@ export function TrafficEvidenceViewer({
           : current,
       );
     } catch (e) {
-      toast.error((e as Error).message);
+      toast.error(t("requestFailed", { message: (e as Error).message }));
     } finally {
       setBusy(false);
     }
@@ -72,9 +73,9 @@ export function TrafficEvidenceViewer({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{t("Traffic evidence #{id}", { id: bindingId ?? "" })}</DialogTitle>
+          <DialogTitle>{t("evidence.title", { id: bindingId ?? "" })}</DialogTitle>
           <DialogDescription className="break-all">
-            {detail?.binding.snapshot.url ?? t("View the request and response saved at binding time")}
+            {detail?.binding.snapshot.url ?? t("evidence.descriptionFallback")}
           </DialogDescription>
         </DialogHeader>
         {error ? (
@@ -84,15 +85,15 @@ export function TrafficEvidenceViewer({
         ) : detail ? (
           <Tabs defaultValue="request">
             <TabsList>
-              <TabsTrigger value="request">{t("Request")}</TabsTrigger>
-              <TabsTrigger value="response">{t("Response")}</TabsTrigger>
+              <TabsTrigger value="request">{t("tabs.request")}</TabsTrigger>
+              <TabsTrigger value="response">{t("tabs.response")}</TabsTrigger>
             </TabsList>
             {(["request", "response"] as const).map((side) => (
               <TabsContent key={side} value={side}>
                 <div className="flex flex-wrap items-center justify-between gap-2">
                   <span className="text-xs text-muted-foreground">
-                    {t("Body {size} bytes", { size: detail[side].total.toLocaleString(intlLocale) })}
-                    {detail[side].truncated ? ` · ${t("preview")}` : ""}
+                    {t("body.size", { size: detail[side].total.toLocaleString() })}
+                    {detail[side].truncated ? t("body.previewSuffix") : ""}
                   </span>
                   <Button
                     variant="outline"
@@ -100,10 +101,10 @@ export function TrafficEvidenceViewer({
                     onClick={() =>
                       void api
                         .downloadFindingTrafficBody(findingId, detail.binding.id, side, contextTask)
-                        .catch((e: Error) => toast.error(e.message))
+                        .catch((e: Error) => toast.error(t("requestFailed", { message: e.message })))
                     }
                   >
-                    {side === "request" ? t("Download full request body") : t("Download full response body")}
+                    {side === "request" ? t("download.request") : t("download.response")}
                   </Button>
                 </div>
                 <HttpCodeBlock
@@ -111,7 +112,7 @@ export function TrafficEvidenceViewer({
                 />
                 {detail[side].truncated && !detail[side].binary ? (
                   <Button variant="outline" size="sm" disabled={busy} onClick={() => void more(side)}>
-                    {t("Load more body")}
+                    {t("loadMore")}
                   </Button>
                 ) : null}
               </TabsContent>
@@ -126,6 +127,7 @@ export function TrafficEvidenceViewer({
 }
 
 export function CapturedTrafficViewer({ id, onClose }: { id: string | null; onClose: () => void }) {
+  const t = useTranslations("trafficEvidenceViewer");
   const [detail, setDetail] = React.useState<TrafficDetail | null>(null);
   const [error, setError] = React.useState("");
   React.useEffect(() => {
@@ -154,8 +156,8 @@ export function CapturedTrafficViewer({ id, onClose }: { id: string | null; onCl
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-4xl">
         <DialogHeader>
-          <DialogTitle>{t("Traffic preview")}</DialogTitle>
-          <DialogDescription>{t("Traffic ID: {id}. The full body is saved when binding.", { id: id ?? "" })}</DialogDescription>
+          <DialogTitle>{t("captured.title")}</DialogTitle>
+          <DialogDescription>{t("captured.description", { id: id ?? "" })}</DialogDescription>
         </DialogHeader>
         {error ? (
           <Alert variant="destructive">
@@ -164,8 +166,8 @@ export function CapturedTrafficViewer({ id, onClose }: { id: string | null; onCl
         ) : detail ? (
           <Tabs defaultValue="request">
             <TabsList>
-              <TabsTrigger value="request">{t("Request")}</TabsTrigger>
-              <TabsTrigger value="response">{t("Response")}</TabsTrigger>
+              <TabsTrigger value="request">{t("tabs.request")}</TabsTrigger>
+              <TabsTrigger value="response">{t("tabs.response")}</TabsTrigger>
             </TabsList>
             <TabsContent value="request">
               <HttpCodeBlock raw={detail.req} />

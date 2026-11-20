@@ -1,5 +1,3 @@
-import { t } from "@/i18n";
-
 // Channel field table and config-value parsing helpers.
 //
 // This lives apart from the page because it is **data**, not a view: it describes which fields each channel has,
@@ -10,9 +8,9 @@ export const KIND_LABEL: Record<string, string> = {
   dingtalk: "DingTalk",
   feishu: "Feishu",
   wecom: "WeCom",
-  webhook: t("Generic Webhook"),
+  webhook: "Generic Webhook",
   telegram: "Telegram",
-  email: t("Email"),
+  email: "Email",
 };
 
 // Config field definitions per channel.
@@ -42,9 +40,9 @@ export const CHANNEL_FIELDS: Record<string, FieldDef[]> = {
     },
     {
       key: "secret",
-      label: t("Signing secret"),
+      label: "Signing secret",
       kind: "password",
-      help: t("Fill in when the robot's security settings use 'Sign'; leave empty for 'Custom keywords' or when no security setting is enabled"),
+      help: "Fill in when the robot's security settings use 'Sign'; leave empty for 'Custom keywords' or when no security setting is enabled",
     },
   ],
   feishu: [
@@ -54,7 +52,7 @@ export const CHANNEL_FIELDS: Record<string, FieldDef[]> = {
       kind: "text",
       placeholder: "https://open.feishu.cn/open-apis/bot/v2/hook/...",
     },
-    { key: "secret", label: t("Signature verification secret"), kind: "password", help: t("Fill in when the robot enables 'Signature verification'; otherwise leave empty") },
+    { key: "secret", label: "Signature verification secret", kind: "password", help: "Fill in when the robot enables 'Signature verification'; otherwise leave empty" },
   ],
   wecom: [
     {
@@ -65,26 +63,27 @@ export const CHANNEL_FIELDS: Record<string, FieldDef[]> = {
     },
   ],
   webhook: [
-    { key: "url", label: t("Target URL"), kind: "text", placeholder: "https://your-endpoint.example.com/hook" },
+    { key: "url", label: "Target URL", kind: "text", placeholder: "https://your-endpoint.example.com/hook" },
     {
       key: "method",
-      label: t("HTTP method"),
+      label: "HTTP method",
       kind: "select",
       options: [
-        { value: "POST", label: t("POST (with body)") },
-        { value: "PUT", label: t("PUT (with body)") },
-        { value: "PATCH", label: t("PATCH (with body)") },
-        { value: "GET", label: t("GET (no body)") },
+        { value: "POST", label: "POST (with body)" },
+        { value: "PUT", label: "PUT (with body)" },
+        { value: "PATCH", label: "PATCH (with body)" },
+        { value: "GET", label: "GET (no body)" },
       ],
     },
-    { key: "headers", label: t("Custom headers"), kind: "kv", help: t("One KEY=VALUE per line, e.g. Authorization=Bearer xxx") },
+    { key: "headers", label: "Custom headers", kind: "kv", help: "One KEY=VALUE per line, e.g. Authorization=Bearer xxx" },
     {
       key: "body_template",
-      label: t("Body template"),
+      label: "Body template",
       kind: "textarea",
-      help: t(
-        "Leave empty to use the built-in default template. Variables: {{.Title}} {{.Batch}} {{.Count}} {{.HomeURL}} {{.SentAt}}, plus .Name/.VulnClass/.Severity/.Summary/.Assets/.DetailURL/.StatusLabel under range .Items. Use {{json .Xxx}} instead of {{.Xxx}} to insert strings, or quotes in titles will break the JSON.",
-      ),
+      help:
+        "Leave empty to use the built-in default template. Variables: {{.Title}} {{.Batch}} {{.Count}} {{.HomeURL}} {{.SentAt}}, " +
+        "plus .Name/.VulnClass/.Severity/.Summary/.Assets/.DetailURL/.StatusLabel under range .Items. " +
+        "Use {{json .Xxx}} instead of {{.Xxx}} to insert strings, or quotes in titles will break the JSON.",
     },
   ],
   telegram: [
@@ -95,32 +94,32 @@ export const CHANNEL_FIELDS: Record<string, FieldDef[]> = {
       label: "API URL",
       kind: "text",
       placeholder: "https://api.telegram.org",
-      help: t("Leave empty for the official URL; fill in when proxying a self-hosted Bot API"),
+      help: "Leave empty for the official URL; fill in when proxying a self-hosted Bot API",
     },
   ],
   email: [
-    { key: "host", label: t("SMTP server"), kind: "text", placeholder: "smtp.example.com" },
+    { key: "host", label: "SMTP server", kind: "text", placeholder: "smtp.example.com" },
     {
       key: "port",
-      label: t("Port"),
+      label: "Port",
       kind: "number",
       placeholder: "587",
-      help: t("587 uses STARTTLS; for 465 turn 'Implicit TLS' on"),
+      help: "587 uses STARTTLS; for 465 turn 'Implicit TLS' on",
     },
-    { key: "username", label: t("Account"), kind: "text" },
-    { key: "password", label: t("Password / auth code"), kind: "password" },
-    { key: "from", label: t("From"), kind: "text", placeholder: "artex@example.com" },
-    { key: "to", label: t("Recipients"), kind: "list", help: t("Separate multiple addresses with commas") },
-    { key: "tls", label: t("Implicit TLS"), kind: "switch", help: t("On for port 465; keep off for 587 (STARTTLS is automatic)") },
+    { key: "username", label: "Account", kind: "text" },
+    { key: "password", label: "Password / auth code", kind: "password" },
+    { key: "from", label: "From", kind: "text", placeholder: "artex@example.com" },
+    { key: "to", label: "Recipients", kind: "list", help: "Separate multiple addresses with commas" },
+    { key: "tls", label: "Implicit TLS", kind: "switch", help: "On for port 465; keep off for 587 (STARTTLS is automatic)" },
   ],
 };
 
 export const SEVERITY_OPTIONS = [
-  { value: "", label: t("All severities") },
-  { value: "low", label: t("Low and above") },
-  { value: "medium", label: t("Medium and above") },
-  { value: "high", label: t("High and above") },
-  { value: "critical", label: t("Critical only") },
+  { value: "", label: "All severities" },
+  { value: "low", label: "Low and above" },
+  { value: "medium", label: "Medium and above" },
+  { value: "high", label: "High and above" },
+  { value: "critical", label: "Critical only" },
 ];
 
 export type ChannelForm = {
@@ -157,10 +156,10 @@ export const emptyForm = (kind: string): ChannelForm => ({
 export function parseKV(text: string): Record<string, string> {
   const out: Record<string, string> = {};
   for (const line of text.split("\n")) {
-    const ln = line.trim();
-    if (!ln) continue;
-    const i = ln.indexOf("=");
-    if (i > 0) out[ln.slice(0, i).trim()] = ln.slice(i + 1).trim();
+    const t = line.trim();
+    if (!t) continue;
+    const i = t.indexOf("=");
+    if (i > 0) out[t.slice(0, i).trim()] = t.slice(i + 1).trim();
   }
   return out;
 }

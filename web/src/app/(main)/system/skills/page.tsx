@@ -1,6 +1,7 @@
 "use client";
 
 import * as React from "react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 import {
   ChevronRightIcon,
@@ -43,12 +44,11 @@ import {
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { cn } from "@/lib/utils";
 import { api } from "@/lib/api";
-import { intlLocale, t } from "@/i18n";
 import type { Agent, SkillItem, MCPServer, SkillCall, MissingSkill } from "@/lib/types";
 
 function fmtTime(ts?: string) {
-  if (!ts) return t("Never called");
-  return new Date(ts).toLocaleString(intlLocale, {
+  if (!ts) return "Never called";
+  return new Date(ts).toLocaleString("ko-KR", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -154,6 +154,7 @@ function SkillsOverview({
   missing: MissingSkill[];
   onSelect: (name: string) => void;
 }) {
+  const t = useTranslations("skills");
   const agg = React.useMemo(() => {
     const totalCalls = skills.reduce((n, s) => n + s.calls, 0);
     const used = skills.filter((s) => s.calls > 0);
@@ -178,31 +179,23 @@ function SkillsOverview({
   if (skills.length === 0) {
     return (
       <div className="flex h-full items-center justify-center">
-        <p className="text-sm text-muted-foreground">{t("No skills yet — click \"Create\" or \"Upload archive\" on the left to get started")}</p>
+        <p className="text-sm text-muted-foreground">{t("overview.emptyNoSkills")}</p>
       </div>
     );
   }
 
   const stats: { label: string; value: React.ReactNode; hint?: string }[] = [
-    { label: t("Total skills"), value: skills.length, hint: t("{count} have been called", { count: agg.usedCount }) },
-    { label: t("Total calls"), value: agg.totalCalls },
-    {
-      label: t("Unused"),
-      value: agg.neverUsed.length,
-      hint: agg.neverUsed.length > 0 ? t("never loaded by any agent") : t("all used"),
-    },
-    {
-      label: t("Missed calls"),
-      value: agg.missingCalls,
-      hint: missing.length > 0 ? t("{count} missing skills", { count: missing.length }) : t("none"),
-    },
+    { label: t("overview.stats.totalSkills"), value: skills.length, hint: t("overview.stats.totalSkillsHint", { count: agg.usedCount }) },
+    { label: t("overview.stats.totalCalls"), value: agg.totalCalls },
+    { label: t("overview.stats.unused"), value: agg.neverUsed.length, hint: agg.neverUsed.length > 0 ? t("overview.stats.unusedHintSome") : t("overview.stats.unusedHintNone") },
+    { label: t("overview.stats.missedCalls"), value: agg.missingCalls, hint: missing.length > 0 ? t("overview.stats.missedCallsHintSome", { count: missing.length }) : t("overview.stats.missedCallsHintNone") },
   ];
 
   return (
     <div className="mx-auto w-full max-w-3xl space-y-6">
       <div>
-        <h2 className="text-base font-semibold">{t("Skill library overview")}</h2>
-        <p className="text-muted-foreground text-sm">{t("Select a skill on the left to view details and call history, or get a quick picture of overall usage here.")}</p>
+        <h2 className="text-base font-semibold">{t("overview.title")}</h2>
+        <p className="text-muted-foreground text-sm">{t("overview.subtitle")}</p>
       </div>
 
       {/* stat cards */}
@@ -218,10 +211,10 @@ function SkillsOverview({
 
       {/* call ranking */}
       <div className="space-y-2">
-        <Label className="text-xs text-muted-foreground">{t("Call ranking")}</Label>
+        <Label className="text-xs text-muted-foreground">{t("overview.callRanking")}</Label>
         {agg.ranked.length === 0 ? (
           <p className="text-muted-foreground rounded-lg border border-dashed p-4 text-center text-xs">
-            {t("No skill call records yet.")}
+            {t("overview.noCallRecordsRanking")}
           </p>
         ) : (
           <div className="space-y-1.5">
@@ -240,7 +233,7 @@ function SkillsOverview({
                   />
                 </span>
                 <span className="w-16 shrink-0 text-right text-xs tabular-nums text-muted-foreground">
-                  {t("{count} calls", { count: s.calls })}
+                  {t("common.callsCount", { count: s.calls })}
                 </span>
               </button>
             ))}
@@ -251,9 +244,9 @@ function SkillsOverview({
       <div className="grid gap-6 sm:grid-cols-2">
         {/* recent calls */}
         <div className="space-y-2">
-          <Label className="text-xs text-muted-foreground">{t("Recent calls")}</Label>
+          <Label className="text-xs text-muted-foreground">{t("overview.recentCalls")}</Label>
           {agg.recent.length === 0 ? (
-            <p className="text-muted-foreground text-xs">{t("No records yet.")}</p>
+            <p className="text-muted-foreground text-xs">{t("overview.noRecords")}</p>
           ) : (
             <div className="space-y-1">
               {agg.recent.map((s) => (
@@ -274,11 +267,11 @@ function SkillsOverview({
         {/* unused (candidates for cleanup / exposure) */}
         <div className="space-y-2">
           <Label className="text-xs text-muted-foreground">
-            {t("Unused skills")}
+            {t("overview.unusedSkills")}
             {agg.neverUsed.length > 0 && <span className="ml-1 font-normal"> ({agg.neverUsed.length})</span>}
           </Label>
           {agg.neverUsed.length === 0 ? (
-            <p className="text-muted-foreground text-xs">{t("All skills have been called.")}</p>
+            <p className="text-muted-foreground text-xs">{t("overview.allCalled")}</p>
           ) : (
             <div className="flex flex-wrap gap-1.5">
               {agg.neverUsed.map((s) => (
@@ -303,6 +296,7 @@ function SkillsOverview({
 
 // ── Page ──────────────────────────────────────────────────────────────────
 export default function SkillsPage() {
+  const t = useTranslations("skills");
   const [skills, setSkills] = React.useState<SkillItem[]>([]);
   const [agents, setAgents] = React.useState<Agent[]>([]);
   const [selected, setSelected] = React.useState<Selected | null>(null);
@@ -371,18 +365,18 @@ export default function SkillsPage() {
     setUploading(true);
     try {
       const r = await api.uploadSkill(file, overwrite);
-      toast.success(t("Skill installed: {name} ({count} files)", { name: r.name, count: r.files }));
+      toast.success(t("toasts.installed", { name: r.name, files: r.files }));
       load();
     } catch (e) {
       const msg = (e as Error).message;
       // offer overwrite when the skill already exists
       if (!overwrite && msg.includes("already exists")) {
-        if (window.confirm(`${msg}\n\n${t("Overwrite the skill with the same name?")}`)) {
+        if (window.confirm(t("toasts.overwriteConfirm", { message: msg }))) {
           await uploadZip(file, true);
           return;
         }
       } else {
-        toast.error(t("Upload failed: {error}", { error: msg }));
+        toast.error(t("toasts.uploadFailed", { message: msg }));
       }
     } finally {
       setUploading(false);
@@ -424,9 +418,9 @@ export default function SkillsPage() {
     setFileLoading(true);
     api.readSkillFile(selected.skill, selected.path)
       .then((c) => { setFileContent(c); setDirty(false); })
-      .catch(() => toast.error(t("Failed to read the file")))
+      .catch(() => toast.error(t("toasts.readFileFailed")))
       .finally(() => setFileLoading(false));
-  }, [selected]);
+  }, [selected, t]);
 
   // ── Expand helpers ────────────────────────────────────────────────────────
   function toggleExpanded(key: string) {
@@ -478,17 +472,17 @@ export default function SkillsPage() {
     try {
       if (c.kind === "dir") {
         await api.createSkillDir(c.skill, fullPath);
-        toast.success(t("Folder created: {path}", { path: fullPath }));
+        toast.success(t("toasts.folderCreated", { path: fullPath }));
         ensureExpanded(c.skill, fullPath);
       } else {
         await api.writeSkillFile(c.skill, fullPath, "");
-        toast.success(t("File created: {path}", { path: fullPath }));
+        toast.success(t("toasts.fileCreated", { path: fullPath }));
         setSelected({ skill: c.skill, path: fullPath });
         ensureExpanded(c.skill, c.inDir);
       }
       load();
     } catch (e) {
-      toast.error(t("Create failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.createFailed", { message: (e as Error).message }));
     }
   }
 
@@ -501,22 +495,22 @@ export default function SkillsPage() {
   async function deletePath(skill: string, path: string) {
     try {
       await api.deleteSkillPath(skill, path);
-      toast.success(t("Deleted: {path}", { path }));
+      toast.success(t("toasts.deleted", { path }));
       if (selected?.skill === skill && selected.path === path) setSelected(null);
       load();
     } catch (e) {
-      toast.error(t("Delete failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.deleteFailed", { message: (e as Error).message }));
     }
   }
 
   async function deleteSkill(name: string) {
     try {
       await api.deleteSkill(name);
-      toast.success(t("Skill deleted: {name}", { name }));
+      toast.success(t("toasts.skillDeleted", { name }));
       if (selected?.skill === name) setSelected(null);
       load();
     } catch (e) {
-      toast.error(t("Delete failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.deleteFailed", { message: (e as Error).message }));
     }
   }
 
@@ -538,10 +532,10 @@ export default function SkillsPage() {
     setSaving(true);
     try {
       await api.writeSkillFile(selected.skill, selected.path, fileContent);
-      toast.success(t("Saved"));
+      toast.success(t("toasts.saved"));
       setDirty(false);
     } catch (e) {
-      toast.error(t("Save failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.saveFailed", { message: (e as Error).message }));
     } finally { setSaving(false); }
   }
 
@@ -552,12 +546,12 @@ export default function SkillsPage() {
     setDetailMcps(next);
     try {
       await api.updateSkillMeta(skillName, { mcps: next });
-      toast.success(mcpOn ? t('Linked "{name}"', { name: mcpName }) : t('Unlinked "{name}"', { name: mcpName }));
+      toast.success(mcpOn ? t("toasts.mcpLinked", { name: mcpName }) : t("toasts.mcpUnlinked", { name: mcpName }));
       load();
     } catch (e) {
       // roll back on error
       setDetailMcps(detailMcps);
-      toast.error(t("Operation failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.operationFailed", { message: (e as Error).message }));
     }
   }
 
@@ -565,21 +559,17 @@ export default function SkillsPage() {
     const on = (visibility[skillName] ?? []).includes(agentId);
     try {
       await api.toggleSkillVisibility(agentId, skillName, !on);
-      toast.success(
-        on
-          ? t('Revoked visibility to "{name}"', { name: agentName })
-          : t('Granted visibility to "{name}"', { name: agentName }),
-      );
+      toast.success(on ? t("toasts.visibilityRevoked", { name: agentName }) : t("toasts.visibilityGranted", { name: agentName }));
       const ids = await api.skillVisibility(skillName);
       setVisibility((v) => ({ ...v, [skillName]: ids }));
     } catch (e) {
-      toast.error(t("Operation failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.operationFailed", { message: (e as Error).message }));
     }
   }
 
   async function createNewSkill() {
-    if (!newName.trim()) { toast.error(t("Please fill in the name")); return; }
-    if (!newDesc.trim()) { toast.error(t("description is required")); return; }
+    if (!newName.trim()) { toast.error(t("toasts.nameRequired")); return; }
+    if (!newDesc.trim()) { toast.error(t("toasts.descRequired")); return; }
     setCreatingSkill(true);
     try {
       const name = newName.trim();
@@ -592,13 +582,13 @@ export default function SkillsPage() {
       });
       // apply initial visibility (fire-and-forget per agent; best-effort)
       await Promise.all(newVisibility.map((id) => api.toggleSkillVisibility(id, name, true)));
-      toast.success(t("Skill created"));
+      toast.success(t("toasts.skillCreated"));
       setNewOpen(false);
       setNewName(""); setNewDesc(""); setNewLicense(""); setNewCompat(""); setNewInst("");
       setNewMcps([]); setNewVisibility([]);
       load();
     } catch (e) {
-      toast.error(t("Create failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.createFailed", { message: (e as Error).message }));
     } finally { setCreatingSkill(false); }
   }
 
@@ -618,7 +608,7 @@ export default function SkillsPage() {
         <Input
           ref={inlineRef}
           className="h-6 flex-1 px-1 py-0 font-mono text-xs"
-          placeholder={creating?.kind === "dir" ? "folder-name" : "filename.py"}
+          placeholder={creating?.kind === "dir" ? t("tree.newFolderPlaceholder") : t("tree.newFilePlaceholder")}
           value={newEntryName}
           onChange={(e) => setNewEntryName(e.target.value)}
           onKeyDown={(e) => {
@@ -655,15 +645,15 @@ export default function SkillsPage() {
               <span className="min-w-0 flex-1 truncate" title={node.path}>{node.name}</span>
               {/* Absolute so a long name can never push the actions out of view */}
               <span className="absolute inset-y-0 right-1 hidden items-center gap-0.5 rounded bg-muted pl-1 group-hover:flex">
-                <Button size="icon" variant="ghost" className="size-5" title={t("New file")}
+                <Button size="icon" variant="ghost" className="size-5" title={t("tree.newFile")}
                   onClick={(e) => { e.stopPropagation(); startCreate(skill, node.path, "file"); }}>
                   <FilePlusIcon className="size-3 text-muted-foreground" />
                 </Button>
-                <Button size="icon" variant="ghost" className="size-5" title={t("New folder")}
+                <Button size="icon" variant="ghost" className="size-5" title={t("tree.newFolder")}
                   onClick={(e) => { e.stopPropagation(); startCreate(skill, node.path, "dir"); }}>
                   <FolderPlusIcon className="size-3 text-muted-foreground" />
                 </Button>
-                <Button size="icon" variant="ghost" className="size-5" title={t("Delete folder")}
+                <Button size="icon" variant="ghost" className="size-5" title={t("tree.deleteFolder")}
                   onClick={(e) => { e.stopPropagation(); setPendingDelete({ kind: "dir", skill, path: node.path }); }}>
                   <Trash2Icon className="size-3 text-destructive" />
                 </Button>
@@ -699,7 +689,7 @@ export default function SkillsPage() {
             isSelected ? "bg-accent" : "bg-muted",
           )}>
             <Button size="icon" variant="ghost" className="size-5"
-              title={t("Delete file")}
+              title={t("tree.deleteFile")}
               onClick={(e) => { e.stopPropagation(); setPendingDelete({ kind: "file", skill, path: node.path }); }}>
               <Trash2Icon className="size-3 text-destructive" />
             </Button>
@@ -717,8 +707,8 @@ export default function SkillsPage() {
     <div data-content-padding="false" className="flex flex-1 flex-col overflow-hidden">
       <div className="flex items-center gap-3 border-b px-4 py-2.5 lg:px-6">
         <div className="flex flex-col gap-0.5">
-          <h1 className="text-sm font-semibold leading-tight">{t("Skill")}</h1>
-          <p className="text-muted-foreground text-xs">{t("Skill library · agentskills.io spec · visibility granted per agent")}</p>
+          <h1 className="text-sm font-semibold leading-tight">{t("header.title")}</h1>
+          <p className="text-muted-foreground text-xs">{t("header.subtitle")}</p>
         </div>
         {/* Gap list: skills agents invoke by name but missing from the library — direct evidence of what to add. */}
         {missing.length > 0 && (
@@ -726,18 +716,18 @@ export default function SkillsPage() {
             <PopoverTrigger asChild>
               <Button size="sm" variant="outline" className="ml-auto">
                 <AlertTriangleIcon className="size-3.5 text-amber-500" />
-                {t("{count} missed calls", { count: missing.length })}
+                {t("header.missedCalls", { count: missing.length })}
               </Button>
             </PopoverTrigger>
             <PopoverContent align="end" className="w-80">
               <p className="mb-2 text-xs text-muted-foreground">
-                {t("Skills agents invoke by name that do not exist in the library. Sorted by invocation count.")}
+                {t("header.missingDescription")}
               </p>
               <div className="space-y-1">
                 {missing.map((m) => (
                   <div key={m.skill} className="flex items-center gap-2 text-sm">
                     <code className="min-w-0 flex-1 truncate font-mono text-xs" title={m.skill}>{m.skill}</code>
-                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{t("{count} calls", { count: m.calls })}</span>
+                    <span className="shrink-0 text-xs tabular-nums text-muted-foreground">{t("common.callsCount", { count: m.calls })}</span>
                     <span className="shrink-0 text-xs text-muted-foreground">{fmtTime(m.last_used)}</span>
                   </div>
                 ))}
@@ -751,8 +741,7 @@ export default function SkillsPage() {
         <div className="flex w-64 shrink-0 flex-col border-r">
           <div className="flex flex-col gap-2 border-b p-2">
             <Button size="sm" variant="outline" className="w-full" onClick={() => setNewOpen(true)}>
-              <PlusIcon className="size-3.5" />
-              {t("Create skill")}
+              <PlusIcon className="size-3.5" />{t("sidebar.createSkill")}
             </Button>
             <input
               ref={uploadRef}
@@ -767,10 +756,10 @@ export default function SkillsPage() {
               className="w-full"
               disabled={uploading}
               onClick={() => uploadRef.current?.click()}
-              title={t("Upload a .zip archive containing SKILL.md")}
+              title={t("sidebar.uploadTitle")}
             >
               <UploadIcon className="size-3.5" />
-              {uploading ? t("Uploading…") : t("Upload archive")}
+              {uploading ? t("sidebar.uploading") : t("sidebar.uploadArchive")}
             </Button>
           </div>
           {/* Radix viewport wraps children in a display:table div that grows with
@@ -804,7 +793,7 @@ export default function SkillsPage() {
                       {s.calls > 0 && (
                         <span
                           className="shrink-0 rounded bg-muted px-1 text-[10px] tabular-nums text-muted-foreground"
-                          title={t("Called {count} times · last {time}", { count: s.calls, time: fmtTime(s.last_used) })}
+                          title={t("tree.callTooltip", { count: s.calls, time: fmtTime(s.last_used) })}
                         >
                           {s.calls}
                         </span>
@@ -813,15 +802,15 @@ export default function SkillsPage() {
                         "absolute inset-y-0 right-1 hidden items-center gap-0.5 rounded pl-1 group-hover:flex",
                         isSkillSelected ? "bg-accent" : "bg-muted",
                       )}>
-                        <Button size="icon" variant="ghost" className="size-5" title={t("New file")}
+                        <Button size="icon" variant="ghost" className="size-5" title={t("tree.newFile")}
                           onClick={(e) => { e.stopPropagation(); startCreate(s.name, "", "file"); }}>
                           <FilePlusIcon className="size-3 text-muted-foreground" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="size-5" title={t("New folder")}
+                        <Button size="icon" variant="ghost" className="size-5" title={t("tree.newFolder")}
                           onClick={(e) => { e.stopPropagation(); startCreate(s.name, "", "dir"); }}>
                           <FolderPlusIcon className="size-3 text-muted-foreground" />
                         </Button>
-                        <Button size="icon" variant="ghost" className="size-5" title={t("Delete skill")}
+                        <Button size="icon" variant="ghost" className="size-5" title={t("tree.deleteSkill")}
                           onClick={(e) => { e.stopPropagation(); setPendingDelete({ kind: "skill", skill: s.name }); }}>
                           <Trash2Icon className="size-3 text-destructive" />
                         </Button>
@@ -841,7 +830,7 @@ export default function SkillsPage() {
               })}
 
               {skills.length === 0 && (
-                <p className="p-3 text-xs text-muted-foreground">{t("No skills yet — click \"Create\" to get started")}</p>
+                <p className="p-3 text-xs text-muted-foreground">{t("sidebar.emptyNoSkills")}</p>
               )}
             </div>
           </ScrollArea>
@@ -866,9 +855,7 @@ export default function SkillsPage() {
                 )}
                 <div className="mt-2 flex flex-wrap gap-2">
                   {selectedSkill.license && (
-                    <Badge variant="outline" className="text-xs font-normal">
-                      {t("License: {license}", { license: selectedSkill.license })}
-                    </Badge>
+                    <Badge variant="outline" className="text-xs font-normal">{t("detail.licenseLabel", { license: selectedSkill.license })}</Badge>
                   )}
                   {selectedSkill.compatibility && (
                     <Badge variant="secondary" className="text-xs font-normal">{selectedSkill.compatibility}</Badge>
@@ -882,52 +869,50 @@ export default function SkillsPage() {
               <div className="flex flex-col gap-6 lg:flex-row-reverse lg:items-start">
                 {/* ── right: call stats ── */}
                 <div className="space-y-2 lg:w-80 lg:shrink-0">
-                  <Label className="text-xs text-muted-foreground">{t("Call stats")}</Label>
+                  <Label className="text-xs text-muted-foreground">{t("detail.callStats")}</Label>
                   <div className="grid grid-cols-3 gap-2">
                     <div className="rounded-md border p-2">
                       <p className="text-lg font-semibold tabular-nums">{selectedSkill.calls}</p>
-                      <p className="text-xs text-muted-foreground">{t("Total calls")}</p>
+                      <p className="text-xs text-muted-foreground">{t("detail.totalCalls")}</p>
                     </div>
                     <div className="rounded-md border p-2">
                       <p className="text-lg font-semibold tabular-nums">{selectedSkill.tasks}</p>
-                      <p className="text-xs text-muted-foreground">{t("Tasks covered")}</p>
+                      <p className="text-xs text-muted-foreground">{t("detail.tasksCovered")}</p>
                     </div>
                     <div className="rounded-md border p-2">
                       <p className="truncate text-sm font-medium" title={fmtTime(selectedSkill.last_used)}>
                         {fmtTime(selectedSkill.last_used)}
                       </p>
-                      <p className="text-xs text-muted-foreground">{t("Last called")}</p>
+                      <p className="text-xs text-muted-foreground">{t("detail.lastCalled")}</p>
                     </div>
                   </div>
                   {selectedSkill.usage_agents.length > 0 && (
                     <div className="flex flex-wrap items-center gap-1">
-                      <span className="text-xs text-muted-foreground">{t("Called by:")}</span>
+                      <span className="text-xs text-muted-foreground">{t("detail.calledBy")}</span>
                       {selectedSkill.usage_agents.map((k) => (
                         <Badge key={k} variant="secondary" className="text-xs font-normal">{k}</Badge>
                       ))}
                     </div>
                   )}
                   {usageLoading ? (
-                    <p className="text-xs text-muted-foreground">{t("Loading call details…")}</p>
+                    <p className="text-xs text-muted-foreground">{t("detail.loadingCallDetails")}</p>
                   ) : usageCalls.length > 0 ? (
                     <div className="rounded-md border">
-                      <div className="border-b px-2 py-1 text-xs text-muted-foreground">
-                        {t("Last {count} calls", { count: usageCalls.length })}
-                      </div>
+                      <div className="border-b px-2 py-1 text-xs text-muted-foreground">{t("detail.lastNCalls", { count: usageCalls.length })}</div>
                       <div className="max-h-56 overflow-y-auto">
                         {usageCalls.map((c, i) => (
                           <div key={`${c.ts}-${i}`} className="flex items-center gap-2 border-b px-2 py-1 text-xs last:border-b-0">
                             <span className="tabular-nums text-muted-foreground">{fmtTime(c.ts)}</span>
                             <Badge variant="outline" className="font-normal">{c.agent_key || "—"}</Badge>
                             <span className="ml-auto text-muted-foreground">
-                              {c.task_id > 0 ? t("Task #{id}", { id: c.task_id }) : c.session_id ? t("Chat session") : "—"}
+                              {c.task_id > 0 ? t("detail.taskRef", { id: c.task_id }) : c.session_id ? t("detail.chatSession") : "—"}
                             </span>
                           </div>
                         ))}
                       </div>
                     </div>
                   ) : (
-                    <p className="text-xs text-muted-foreground">{t("No call records yet.")}</p>
+                    <p className="text-xs text-muted-foreground">{t("common.noCallRecords")}</p>
                   )}
                 </div>
 
@@ -935,11 +920,11 @@ export default function SkillsPage() {
                 <div className="space-y-5 lg:min-w-0 lg:flex-1">
                   <div className="space-y-2">
                     <Label className="text-xs text-muted-foreground">
-                      {t("Linked MCP")}
-                      <span className="ml-1 font-normal"> {t("(tools are disclosed/unlocked only when the skill loads)")}</span>
+                      {t("detail.linkedMcp")}
+                      <span className="ml-1 font-normal"> {t("detail.linkedMcpHint")}</span>
                     </Label>
                     {mcpOptions.length === 0 ? (
-                      <p className="text-xs text-muted-foreground">{t('No MCP servers yet; add one on the "MCP" page.')}</p>
+                      <p className="text-xs text-muted-foreground">{t("mcp.noServers")}</p>
                     ) : (
                       <div className="flex flex-wrap gap-x-4 gap-y-2">
                         {mcpOptions.map((m) => (
@@ -956,7 +941,7 @@ export default function SkillsPage() {
                   </div>
 
                   <div className="space-y-2">
-                    <Label className="text-xs text-muted-foreground">{t("Visibility (granted per agent)")}</Label>
+                    <Label className="text-xs text-muted-foreground">{t("detail.visibility")}</Label>
                     <div className="space-y-2">
                       {agents.map((a) => (
                         <label key={a.key} className="flex cursor-pointer items-center gap-2 text-sm">
@@ -968,7 +953,7 @@ export default function SkillsPage() {
                         </label>
                       ))}
                       {agents.length === 0 && (
-                        <span className="text-xs text-muted-foreground">{t("(no agents)")}</span>
+                        <span className="text-xs text-muted-foreground">{t("common.noAgents")}</span>
                       )}
                     </div>
                   </div>
@@ -984,11 +969,11 @@ export default function SkillsPage() {
                 <span>/</span>
                 <span className="font-mono">{selected.path}</span>
                 <Button size="sm" className="ml-auto" onClick={saveFile} disabled={!dirty || saving}>
-                  {saving ? t("Saving…") : t("Save")}
+                  {saving ? t("editor.saving") : t("editor.save")}
                 </Button>
               </div>
               {fileLoading ? (
-                <p className="text-xs text-muted-foreground">{t("Loading…")}</p>
+                <p className="text-xs text-muted-foreground">{t("editor.loading")}</p>
               ) : (
                 <Textarea
                   className="flex-1 resize-none font-mono text-xs"
@@ -1006,25 +991,25 @@ export default function SkillsPage() {
         <AlertDialogContent>
           <AlertDialogHeader>
             <AlertDialogTitle>
-              {pendingDelete?.kind === "skill" && t('Delete skill "{name}"?', { name: pendingDelete.skill })}
-              {pendingDelete?.kind === "dir" && t('Delete folder "{path}"?', { path: pendingDelete.path })}
-              {pendingDelete?.kind === "file" && t('Delete file "{path}"?', { path: pendingDelete.path })}
+              {pendingDelete?.kind === "skill" && t("delete.titleSkill", { name: pendingDelete.skill })}
+              {pendingDelete?.kind === "dir" && t("delete.titleFolder", { path: pendingDelete.path })}
+              {pendingDelete?.kind === "file" && t("delete.titleFile", { path: pendingDelete.path })}
             </AlertDialogTitle>
             <AlertDialogDescription>
               {pendingDelete?.kind === "skill"
-                ? t("This deletes all of the skill's files, MCP links and visibility config. This action cannot be undone.")
+                ? t("delete.descSkill")
                 : pendingDelete?.kind === "dir"
-                  ? t("This also deletes all files under the folder. This action cannot be undone.")
-                  : t("This action cannot be undone.")}
+                  ? t("delete.descFolder")
+                  : t("delete.descDefault")}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("common.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               disabled={deleting}
               onClick={(e) => { e.preventDefault(); void runPendingDelete(); }}
             >
-              {deleting ? t("Deleting…") : t("Delete")}
+              {deleting ? t("delete.deleting") : t("delete.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -1034,13 +1019,13 @@ export default function SkillsPage() {
       <Sheet open={newOpen} onOpenChange={setNewOpen}>
         <SheetContent side="right" className="flex w-full flex-col gap-0 data-[side=right]:sm:max-w-xl">
           <SheetHeader className="px-4 pt-4">
-            <SheetTitle>{t("Create skill")}</SheetTitle>
+            <SheetTitle>{t("create.title")}</SheetTitle>
           </SheetHeader>
           <Tabs defaultValue="basic" className="flex min-h-0 flex-1 flex-col">
             <TabsList className="mx-4 mt-3 shrink-0 justify-start">
-              <TabsTrigger value="basic">{t("Basics")}</TabsTrigger>
+              <TabsTrigger value="basic">{t("create.tabBasics")}</TabsTrigger>
               <TabsTrigger value="mcp">
-                {t("Linked MCP")}
+                {t("create.tabLinkedMcp")}
                 {newMcps.length > 0 && (
                   <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] leading-none text-primary-foreground">
                     {newMcps.length}
@@ -1048,7 +1033,7 @@ export default function SkillsPage() {
                 )}
               </TabsTrigger>
               <TabsTrigger value="visibility">
-                {t("Visibility")}
+                {t("create.tabVisibility")}
                 {newVisibility.length > 0 && (
                   <span className="ml-1.5 rounded-full bg-primary px-1.5 py-0.5 text-[10px] leading-none text-primary-foreground">
                     {newVisibility.length}
@@ -1060,45 +1045,40 @@ export default function SkillsPage() {
             {/* basics */}
             <TabsContent value="basic" className="flex min-h-0 flex-1 flex-col gap-4 overflow-y-auto px-4 pb-4 pt-4 data-[state=inactive]:hidden">
               <div className="grid gap-1.5">
-                <Label htmlFor="sk-name">{t("Name")} <span className="text-destructive">*</span></Label>
+                <Label htmlFor="sk-name">{t("create.nameLabel")} <span className="text-destructive">*</span></Label>
                 <Input id="sk-name" placeholder="sqli-deepdive" value={newName} onChange={(e) => setNewName(e.target.value)} />
-                <p className="text-muted-foreground text-xs">{t("Lowercase letters / digits / hyphens, 1–64 characters")}</p>
+                <p className="text-muted-foreground text-xs">{t("create.nameHint")}</p>
               </div>
               <div className="grid gap-1.5">
-                <Label htmlFor="sk-desc">{t("Description")} <span className="text-destructive">*</span></Label>
+                <Label htmlFor="sk-desc">{t("create.descLabel")} <span className="text-destructive">*</span></Label>
                 <Textarea id="sk-desc" rows={2} className="resize-none"
-                  placeholder={t("What this skill does and when to use it.")}
+                  placeholder={t("create.descPlaceholder")}
                   value={newDesc} onChange={(e) => setNewDesc(e.target.value)} />
               </div>
               <div className="grid grid-cols-2 gap-3">
                 <div className="grid gap-1.5">
-                  <Label className="text-muted-foreground text-xs">license</Label>
-                  <Input placeholder={t("MIT / Proprietary")} value={newLicense} onChange={(e) => setNewLicense(e.target.value)} />
+                  <Label className="text-muted-foreground text-xs">{t("create.licenseLabel")}</Label>
+                  <Input placeholder={t("create.licensePlaceholder")} value={newLicense} onChange={(e) => setNewLicense(e.target.value)} />
                 </div>
                 <div className="grid gap-1.5">
-                  <Label className="text-muted-foreground text-xs">compatibility</Label>
-                  <Input placeholder={t("Requires sqlmap, python3")} value={newCompat} onChange={(e) => setNewCompat(e.target.value)} />
+                  <Label className="text-muted-foreground text-xs">{t("create.compatibilityLabel")}</Label>
+                  <Input placeholder={t("create.compatibilityPlaceholder")} value={newCompat} onChange={(e) => setNewCompat(e.target.value)} />
                 </div>
               </div>
               <div className="flex min-h-0 flex-1 flex-col gap-1.5">
-                <Label htmlFor="sk-inst">
-                  {t("Body")}{" "}
-                  <span className="text-muted-foreground text-xs font-normal">{t("(skeleton generated automatically when empty)")}</span>
-                </Label>
+                <Label htmlFor="sk-inst">{t("create.bodyLabel")} <span className="text-muted-foreground text-xs font-normal">{t("create.bodyHint")}</span></Label>
                 <Textarea id="sk-inst"
                   className="min-h-40 flex-1 resize-none font-mono text-sm leading-relaxed"
-                  placeholder={t(
-                    "## How to run\n\n1. Probe for errors first\n2. Distinguish blind injection types\n\nScripts go in the scripts/ directory.",
-                  )}
+                  placeholder={t("create.bodyPlaceholder")}
                   value={newInst} onChange={(e) => setNewInst(e.target.value)} />
               </div>
             </TabsContent>
 
             {/* linked MCP */}
             <TabsContent value="mcp" className="overflow-y-auto px-4 pb-4 pt-4 data-[state=inactive]:hidden">
-              <p className="mb-3 text-xs text-muted-foreground">{t("The selected MCP's tools are disclosed and unlocked only when the skill loads.")}</p>
+              <p className="mb-3 text-xs text-muted-foreground">{t("create.mcpHint")}</p>
               {mcpOptions.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t('No MCP servers yet; add one on the "MCP" page.')}</p>
+                <p className="text-xs text-muted-foreground">{t("mcp.noServers")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {mcpOptions.map((m) => (
@@ -1118,9 +1098,9 @@ export default function SkillsPage() {
 
             {/* visibility */}
             <TabsContent value="visibility" className="overflow-y-auto px-4 pb-4 pt-4 data-[state=inactive]:hidden">
-              <p className="mb-3 text-xs text-muted-foreground">{t("The selected agents will see this skill once it is created.")}</p>
+              <p className="mb-3 text-xs text-muted-foreground">{t("create.visibilityHint")}</p>
               {agents.length === 0 ? (
-                <p className="text-xs text-muted-foreground">{t("(no agents)")}</p>
+                <p className="text-xs text-muted-foreground">{t("common.noAgents")}</p>
               ) : (
                 <div className="flex flex-col gap-2">
                   {agents.map((a) => (
@@ -1140,8 +1120,8 @@ export default function SkillsPage() {
           </Tabs>
 
           <SheetFooter className="flex-row justify-end gap-2 border-t px-4 py-3">
-            <Button variant="outline" onClick={() => setNewOpen(false)}>{t("Cancel")}</Button>
-            <Button onClick={createNewSkill} disabled={creatingSkill}>{creatingSkill ? t("Creating…") : t("Create")}</Button>
+            <Button variant="outline" onClick={() => setNewOpen(false)}>{t("common.cancel")}</Button>
+            <Button onClick={createNewSkill} disabled={creatingSkill}>{creatingSkill ? t("create.creating") : t("create.submit")}</Button>
           </SheetFooter>
         </SheetContent>
       </Sheet>

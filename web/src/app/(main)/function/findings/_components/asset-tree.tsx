@@ -15,12 +15,12 @@ import {
   SearchIcon,
   SmartphoneIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Button } from "@/components/ui/button";
 import { InputGroup, InputGroupAddon, InputGroupInput } from "@/components/ui/input-group";
 import type { FindingAssetKind, FindingAssetNode } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { t } from "@/i18n";
 
 // Icons reuse the assets page's type mapping, so the same asset kind looks the same in both places.
 const KIND_ICON: Record<FindingAssetKind, LucideIcon> = {
@@ -35,14 +35,14 @@ const KIND_ICON: Record<FindingAssetKind, LucideIcon> = {
 };
 
 const KIND_LABEL: Record<FindingAssetKind, string> = {
-  company: t("Company"),
-  root_domain: t("Root domain"),
-  subdomain: t("Subdomain"),
+  company: "Company",
+  root_domain: "Root domain",
+  subdomain: "Subdomain",
   ip: "IP",
-  app: t("App"),
-  service: t("Service"),
-  endpoint: t("Endpoint"),
-  none: t("Unlinked"),
+  app: "App",
+  service: "Service",
+  endpoint: "Endpoint",
+  none: "Unlinked",
 };
 
 // TreeNode is the tree assembled from the node array. The backend already sorts by "most findings under the same parent first",
@@ -193,6 +193,7 @@ export function AssetTree({
   findingTotal,
   onRefresh,
 }: AssetTreeProps) {
+  const t = useTranslations("findingsComponents");
   const [keyword, setKeyword] = React.useState("");
   const [expanded, setExpanded] = React.useState<Set<string>>(() => new Set());
   // Remember nodes the user collapsed manually, so "expand the top level by default" doesn't reopen them after every refresh.
@@ -234,9 +235,9 @@ export function AssetTree({
     [isExpanded],
   );
 
-  let emptyHint = t("No findings are linked to assets under the current filters.");
-  if (loading) emptyHint = t("Loading…");
-  else if (searching) emptyHint = t("No matching assets.");
+  let emptyHint = t("assetTree.empty.default");
+  if (loading) emptyHint = t("assetTree.empty.loading");
+  else if (searching) emptyHint = t("assetTree.empty.noMatch");
 
   const rows: React.ReactNode[] = [];
   const pushRows = (list: TreeNode[]) => {
@@ -265,8 +266,8 @@ export function AssetTree({
             type="search"
             value={keyword}
             onChange={(event) => setKeyword(event.target.value)}
-            placeholder={t("Filter assets")}
-            aria-label={t("Filter assets")}
+            placeholder={t("assetTree.filterPlaceholder")}
+            aria-label={t("assetTree.filterPlaceholder")}
           />
           <InputGroupAddon>
             <SearchIcon aria-hidden="true" />
@@ -279,8 +280,8 @@ export function AssetTree({
             className="size-8 shrink-0 text-muted-foreground"
             onClick={onRefresh}
             disabled={loading}
-            aria-label={t("Refresh asset tree")}
-            title={t("Refresh asset tree")}
+            aria-label={t("assetTree.refresh")}
+            title={t("assetTree.refresh")}
           >
             <RefreshCwIcon className={cn("size-4", loading && "animate-spin")} />
           </Button>
@@ -295,7 +296,7 @@ export function AssetTree({
           selected === null ? "bg-accent font-medium" : "hover:bg-accent/50",
         )}
       >
-        <span>{t("All assets")}</span>
+        <span>{t("assetTree.allAssets")}</span>
         <span className="text-xs tabular-nums text-muted-foreground">{findingTotal}</span>
       </button>
 
@@ -308,10 +309,11 @@ export function AssetTree({
 
       {truncated && (
         <p className="px-1 text-xs text-muted-foreground">
-          {t(
-            "Too many assets; the {kinds} levels are hidden (their counts still roll up into the parents). Narrow with the filters or the filter box to see the full hierarchy.",
-            { kinds: (droppedKinds ?? []).map((k) => KIND_LABEL[k as FindingAssetKind] ?? k).join(" / ") },
-          )}
+          {t("assetTree.truncatedHint", {
+            kinds: (droppedKinds ?? [])
+              .map((k) => (t.has(`assetTree.kind.${k}`) ? t(`assetTree.kind.${k}`) : (KIND_LABEL[k as FindingAssetKind] ?? k)))
+              .join(" / "),
+          })}
         </p>
       )}
     </div>
@@ -331,6 +333,7 @@ function AssetTreeRow({
   onToggle: () => void;
   onSelect: () => void;
 }) {
+  const t = useTranslations("findingsComponents");
   const Icon = KIND_ICON[node.kind] ?? GlobeIcon;
   const hasChildren = node.children.length > 0;
   return (
@@ -346,7 +349,7 @@ function AssetTreeRow({
           type="button"
           onClick={onToggle}
           className="flex size-5 shrink-0 items-center justify-center rounded text-muted-foreground hover:text-foreground"
-          aria-label={open ? t("Collapse") : t("Expand")}
+          aria-label={open ? t("assetTree.actions.collapse") : t("assetTree.actions.expand")}
           aria-expanded={open}
         >
           <ChevronRightIcon className={cn("size-3.5 transition-transform", open && "rotate-90")} />
@@ -358,23 +361,23 @@ function AssetTreeRow({
         type="button"
         onClick={onSelect}
         className="flex min-w-0 flex-1 items-center gap-1.5 py-1 text-left"
-        title={`${KIND_LABEL[node.kind] ?? node.kind} · ${node.label}`}
+        title={`${t.has(`assetTree.kind.${node.kind}`) ? t(`assetTree.kind.${node.kind}`) : (KIND_LABEL[node.kind] ?? node.kind)} · ${node.label}`}
       >
         <Icon className="size-3.5 shrink-0 text-muted-foreground" aria-hidden="true" />
         <span className={cn("min-w-0 truncate", selected && "font-medium")}>{node.display}</span>
       </button>
       <span className="flex shrink-0 items-center gap-1 text-xs tabular-nums">
         {node.critical > 0 && (
-          <span className="text-rose-600" title={t("Critical {count}", { count: node.critical })}>
+          <span className="text-rose-600" title={t("assetTree.tooltips.critical", { count: node.critical })}>
             {node.critical}
           </span>
         )}
         {node.high > 0 && (
-          <span className="text-red-500" title={t("High {count}", { count: node.high })}>
+          <span className="text-red-500" title={t("assetTree.tooltips.high", { count: node.high })}>
             {node.high}
           </span>
         )}
-        <span className="text-muted-foreground" title={t("{count} findings total", { count: node.total })}>
+        <span className="text-muted-foreground" title={t("assetTree.tooltips.total", { count: node.total })}>
           {node.total}
         </span>
       </span>

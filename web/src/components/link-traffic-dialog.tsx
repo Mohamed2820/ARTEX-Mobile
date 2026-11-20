@@ -2,6 +2,7 @@
 
 import * as React from "react";
 
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Alert, AlertDescription } from "@/components/ui/alert";
@@ -18,7 +19,6 @@ import { Field, FieldGroup, FieldLabel } from "@/components/ui/field";
 import { Input } from "@/components/ui/input";
 import { api } from "@/lib/api";
 import type { Finding, FindingsPage } from "@/lib/types";
-import { t } from "@/i18n";
 
 export function LinkTrafficDialog({
   trafficIds,
@@ -29,6 +29,7 @@ export function LinkTrafficDialog({
   onClose: () => void;
   onBound: () => void;
 }) {
+  const t = useTranslations("linkTrafficDialog");
   const [query, setQuery] = React.useState("");
   const [page, setPage] = React.useState(1);
   const [data, setData] = React.useState<FindingsPage | null>(null);
@@ -67,9 +68,7 @@ export function LinkTrafficDialog({
         selected.finding_id,
         trafficIds.map((traffic_id) => ({ traffic_id })),
       );
-      toast.success(
-        t("Linked {count} traffic records to vulnerability #{id}", { count: trafficIds.length, id: selected.finding_id }),
-      );
+      toast.success(t("toasts.linked", { count: trafficIds.length, id: selected.finding_id ?? "" }));
       onBound();
       onClose();
     } catch (e) {
@@ -87,19 +86,15 @@ export function LinkTrafficDialog({
     >
       <DialogContent className="max-h-[90vh] overflow-y-auto sm:max-w-2xl">
         <DialogHeader>
-          <DialogTitle>{t("Link to vulnerability")}</DialogTitle>
-          <DialogDescription>
-            {t("Save the {count} selected traffic records as evidence of an existing vulnerability.", {
-              count: trafficIds.length,
-            })}
-          </DialogDescription>
+          <DialogTitle>{t("title")}</DialogTitle>
+          <DialogDescription>{t("description", { count: trafficIds.length })}</DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field>
-            <FieldLabel htmlFor="link-finding-query">{t("Find vulnerability")}</FieldLabel>
+            <FieldLabel htmlFor="link-finding-query">{t("query.label")}</FieldLabel>
             <Input
               id="link-finding-query"
-              placeholder={t("Name / summary / vulnerability class")}
+              placeholder={t("query.placeholder")}
               value={query}
               onChange={(e) => {
                 setQuery(e.target.value);
@@ -132,36 +127,34 @@ export function LinkTrafficDialog({
             </Button>
           ))}
           {!data?.items.length ? (
-            <p className="py-6 text-center text-sm text-muted-foreground">
-              {loading ? t("Loading…") : t("No matching vulnerabilities; register one first")}
-            </p>
+            <p className="py-6 text-center text-sm text-muted-foreground">{loading ? t("loading") : t("empty")}</p>
           ) : null}
         </div>
         <div className="flex items-center justify-between gap-2">
           <Button variant="outline" size="sm" disabled={loading || page <= 1} onClick={() => setPage((p) => p - 1)}>
-            {t("Previous")}
+            {t("pagination.previous")}
           </Button>
-          <span className="text-xs">{t("Page {page} · {total} total", { page, total: data?.total ?? 0 })}</span>
+          <span className="text-xs">{t("pagination.page", { page, total: data?.total ?? 0 })}</span>
           <Button
             variant="outline"
             size="sm"
             disabled={loading || page * 20 >= (data?.total ?? 0)}
             onClick={() => setPage((p) => p + 1)}
           >
-            {t("Next")}
+            {t("pagination.next")}
           </Button>
         </div>
         <p className="text-sm">
           {selected
-            ? t("Selected: #{id} {name}", { id: selected.finding_id ?? "", name: selected.name || selected.vulnclass })
-            : t("Select a vulnerability")}
+            ? t("selected", { id: selected.finding_id ?? "", name: selected.name || selected.vulnclass })
+            : t("selectPrompt")}
         </p>
         <DialogFooter>
           <Button variant="outline" disabled={busy} onClick={onClose}>
-            {t("Cancel")}
+            {t("cancel")}
           </Button>
           <Button disabled={busy || !selected} onClick={() => void save()}>
-            {busy ? t("Saving…") : t("Link")}
+            {busy ? t("saving") : t("link")}
           </Button>
         </DialogFooter>
       </DialogContent>

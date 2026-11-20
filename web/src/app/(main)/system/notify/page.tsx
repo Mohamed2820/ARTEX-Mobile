@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { BellIcon, PlusIcon, SendIcon, Trash2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Badge } from "@/components/ui/badge";
@@ -15,7 +16,6 @@ import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "
 import { Switch } from "@/components/ui/switch";
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs";
 import { Textarea } from "@/components/ui/textarea";
-import { t } from "@/i18n";
 import { api } from "@/lib/api";
 import type { NotificationChannel, NotificationFilter, NotificationMeta } from "@/lib/types";
 
@@ -50,6 +50,7 @@ function limitInvalid(raw: string, max: number): boolean {
 // _components/channel-form.tsx, and the delivery log in _components/delivery-list.tsx —
 // they are split out because each stays readable on its own, whereas crammed into one file this page neared 1100 lines.
 export default function NotifyPage() {
+  const t = useTranslations("notify");
   const [meta, setMeta] = React.useState<NotificationMeta | null>(null);
   const [channels, setChannels] = React.useState<NotificationChannel[]>([]);
   const [tab, setTab] = React.useState<"channels" | "deliveries">("channels");
@@ -74,7 +75,7 @@ export default function NotifyPage() {
         setBaseURL(m.public_base_url);
         setDigestMin(m.digest_interval_min);
       })
-      .catch((e) => toast.error(t("Failed to load notification settings: {error}", { error: (e as Error).message })));
+      .catch((e) => toast.error(t("page.toasts.loadMetaFailed", { message: (e as Error).message })));
     // The two render limits are not part of /notify/meta; they are only exposed through /api/settings.
     api
       .settings()
@@ -82,14 +83,14 @@ export default function NotifyPage() {
         setSummaryMax(String(s.notify_summary_max_runes ?? ""));
         setAssetsMax(String(s.notify_assets_max_shown ?? ""));
       })
-      .catch((e) => toast.error(t("Failed to load message limits: {error}", { error: (e as Error).message })));
+      .catch((e) => toast.error(t("page.toasts.loadLimitsFailed", { message: (e as Error).message })));
     // Channel-list load failures must be reported: failing silently would render as "no channels at all",
     // and users would think their config was lost — scarier than a straight-up error.
     api
       .notifyChannels()
       .then(setChannels)
-      .catch((e) => toast.error(t("Failed to load channels: {error}", { error: (e as Error).message })));
-  }, []);
+      .catch((e) => toast.error(t("page.toasts.loadChannelsFailed", { message: (e as Error).message })));
+  }, [t]);
   React.useEffect(() => {
     load();
   }, [load]);
@@ -188,7 +189,7 @@ export default function NotifyPage() {
 
   async function saveForm() {
     if (!form.name.trim()) {
-      toast.error(t("Please fill in a channel name"));
+      toast.error(t("page.toasts.nameRequired"));
       return;
     }
     setSaving(true);
@@ -204,16 +205,16 @@ export default function NotifyPage() {
       };
       if (editing) {
         await api.notifyUpdateChannel(editing.id, payload);
-        toast.success(t("Saved"));
+        toast.success(t("page.toasts.saved"));
         setOpen(false);
       } else {
         await api.notifyCreateChannel(payload);
-        toast.success(t("Channel added"));
+        toast.success(t("page.toasts.channelAdded"));
         setOpen(false);
       }
       load();
     } catch (e) {
-      toast.error(t("Save failed: {error}", { error: (e as Error).message }));
+      toast.error(t("page.toasts.saveFailed", { message: (e as Error).message }));
     } finally {
       setSaving(false);
     }
@@ -224,10 +225,10 @@ export default function NotifyPage() {
     setTesting(true);
     try {
       const r = await api.notifyTestChannel(editing.id);
-      toast.success(t("Test message sent ({ms} ms); check the group to confirm", { ms: r.latency_ms }));
+      toast.success(t("page.toasts.testSent", { ms: r.latency_ms }));
     } catch (e) {
       // The backend relays the raw error returned by the channel verbatim — the only clue for debugging the config — so show it as-is.
-      toast.error(t("Test failed: {error}", { error: (e as Error).message }), { duration: 12000 });
+      toast.error(t("page.toasts.testFailed", { message: (e as Error).message }), { duration: 12000 });
     } finally {
       setTesting(false);
     }
@@ -236,11 +237,11 @@ export default function NotifyPage() {
   async function removeChannel(ch: NotificationChannel) {
     try {
       await api.notifyDeleteChannel(ch.id);
-      toast.success(t("Deleted: {name}", { name: ch.name }));
+      toast.success(t("page.toasts.deleted", { name: ch.name }));
       setOpen(false);
       load();
     } catch (e) {
-      toast.error(t("Delete failed: {error}", { error: (e as Error).message }));
+      toast.error(t("page.toasts.deleteFailed", { message: (e as Error).message }));
     }
   }
 
@@ -249,7 +250,7 @@ export default function NotifyPage() {
       await api.notifyUpdateChannel(ch.id, { enabled: !ch.enabled });
       load();
     } catch (e) {
-      toast.error(t("Operation failed: {error}", { error: (e as Error).message }));
+      toast.error(t("page.toasts.operationFailed", { message: (e as Error).message }));
     }
   }
 
@@ -258,9 +259,9 @@ export default function NotifyPage() {
     try {
       await api.setSettings({ notify_enabled: on });
       setMeta((m) => (m ? { ...m, enabled: on } : m));
-      toast.success(on ? t("Push enabled") : t("Push paused"));
+      toast.success(on ? t("page.toasts.pushEnabled") : t("page.toasts.pushPaused"));
     } catch (e) {
-      toast.error(t("Operation failed: {error}", { error: (e as Error).message }));
+      toast.error(t("page.toasts.operationFailed", { message: (e as Error).message }));
     } finally {
       setGlobalSaving(false);
     }
@@ -270,11 +271,11 @@ export default function NotifyPage() {
     // Checked before anything is sent: the backend applies the fields of one PUT in order,
     // so a 400 on a limit would leave the URL and digest interval already saved.
     if (limitInvalid(summaryMax, SUMMARY_LIMIT_MAX)) {
-      toast.error(t("Summary length must be a whole number between 0 and {max}", { max: SUMMARY_LIMIT_MAX }));
+      toast.error(t("page.toasts.summaryRangeError", { max: SUMMARY_LIMIT_MAX }));
       return;
     }
     if (limitInvalid(assetsMax, ASSETS_LIMIT_MAX)) {
-      toast.error(t("Assets listed must be a whole number between 0 and {max}", { max: ASSETS_LIMIT_MAX }));
+      toast.error(t("page.toasts.assetsRangeError", { max: ASSETS_LIMIT_MAX }));
       return;
     }
     setGlobalSaving(true);
@@ -285,10 +286,10 @@ export default function NotifyPage() {
       if (summaryMax.trim() !== "") patch.notify_summary_max_runes = Number(summaryMax);
       if (assetsMax.trim() !== "") patch.notify_assets_max_shown = Number(assetsMax);
       await api.setSettings(patch);
-      toast.success(t("Saved"));
+      toast.success(t("page.toasts.saved"));
       load();
     } catch (e) {
-      toast.error(t("Save failed: {error}", { error: (e as Error).message }));
+      toast.error(t("page.toasts.saveFailed", { message: (e as Error).message }));
     } finally {
       setGlobalSaving(false);
     }
@@ -302,21 +303,19 @@ export default function NotifyPage() {
     <div className="flex flex-1 flex-col gap-4 md:gap-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("Notifications")}</h1>
-          <p className="text-muted-foreground text-sm">
-            {t("Push findings to DingTalk / Feishu / WeCom and other channels · each channel has its own delivery timing and filter rules")}
-          </p>
+          <h1 className="text-xl font-semibold tracking-tight">{t("page.title")}</h1>
+          <p className="text-muted-foreground text-sm">{t("page.subtitle")}</p>
         </div>
         {meta && (
           // A div, not a label: the Switch carries its own aria-label, and wrapping it in a label
           // would associate it with no native control while making the text look like it should toggle.
           <div className="flex shrink-0 items-center gap-2 text-sm">
-            <span className="text-muted-foreground">{t("Master switch")}</span>
+            <span className="text-muted-foreground">{t("page.masterSwitch")}</span>
             <Switch
               checked={meta.enabled}
               disabled={globalSaving}
               onCheckedChange={toggleGlobal}
-              aria-label={t("Push master switch")}
+              aria-label={t("page.masterSwitchAria")}
             />
           </div>
         )}
@@ -324,15 +323,23 @@ export default function NotifyPage() {
 
       {meta && (
         <div className="grid grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5">
-          <StatTile label={t("Channels")} value={`${meta.stats.channels_on} / ${meta.stats.channels}`} hint={t("On / total")} />
-          <StatTile label={t("Sent today")} value={String(meta.stats.sent_today)} />
-          <StatTile label={t("Pending")} value={String(meta.stats.pending)} />
-          <StatTile label={t("Failed")} value={String(meta.stats.failed)} tone={meta.stats.failed > 0 ? "red" : undefined} />
           <StatTile
-            label={t("Oldest backlog")}
+            label={t("page.stats.channels")}
+            value={`${meta.stats.channels_on} / ${meta.stats.channels}`}
+            hint={t("page.stats.channelsHint")}
+          />
+          <StatTile label={t("page.stats.sentToday")} value={String(meta.stats.sent_today)} />
+          <StatTile label={t("page.stats.pending")} value={String(meta.stats.pending)} />
+          <StatTile
+            label={t("page.stats.failed")}
+            value={String(meta.stats.failed)}
+            tone={meta.stats.failed > 0 ? "red" : undefined}
+          />
+          <StatTile
+            label={t("page.stats.oldestBacklog")}
             value={formatBacklog(meta.stats.backlog_age_ms)}
             // Backlog age is far more useful than backlog count: 3 backlogged items could mean 3 seconds or 3 hours.
-            hint={meta.stats.backlog_age_ms > 5 * 60_000 ? t("Push may be stuck") : undefined}
+            hint={meta.stats.backlog_age_ms > 5 * 60_000 ? t("page.stats.backlogStuckHint") : undefined}
             tone={meta.stats.backlog_age_ms > 5 * 60_000 ? "red" : undefined}
           />
         </div>
@@ -340,21 +347,21 @@ export default function NotifyPage() {
 
       <Card className="gap-3">
         <CardHeader>
-          <CardTitle className="text-base">{t("Global settings")}</CardTitle>
+          <CardTitle className="text-base">{t("page.global.title")}</CardTitle>
         </CardHeader>
         <CardContent className="grid gap-4 sm:grid-cols-2">
           <div className="grid gap-2">
-            <Label htmlFor="n-base">{t("Link-back URL")}</Label>
+            <Label htmlFor="n-base">{t("page.global.linkBackUrl")}</Label>
             <Input
               id="n-base"
               placeholder="https://artex.example.com"
               value={baseURL}
               onChange={(e) => setBaseURL(e.target.value)}
             />
-            <p className="text-muted-foreground text-xs">{t("The address the \"View details\" button in messages points to. Leave empty to omit the button.")}</p>
+            <p className="text-muted-foreground text-xs">{t("page.global.linkBackHelp")}</p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="n-digest">{t("Digest interval (minutes)")}</Label>
+            <Label htmlFor="n-digest">{t("page.global.digestInterval")}</Label>
             <Input
               id="n-digest"
               type="number"
@@ -364,10 +371,10 @@ export default function NotifyPage() {
               value={digestMin}
               onChange={(e) => setDigestMin(e.target.value)}
             />
-            <p className="text-muted-foreground text-xs">{t("Only applies to channels in \"digest\" mode.")}</p>
+            <p className="text-muted-foreground text-xs">{t("page.global.digestHelp")}</p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="n-summary-max">{t("Summary length (characters)")}</Label>
+            <Label htmlFor="n-summary-max">{t("page.global.summaryLength")}</Label>
             <Input
               id="n-summary-max"
               type="number"
@@ -379,12 +386,10 @@ export default function NotifyPage() {
               onChange={(e) => setSummaryMax(e.target.value)}
               aria-invalid={limitInvalid(summaryMax, SUMMARY_LIMIT_MAX)}
             />
-            <p className="text-muted-foreground text-xs">
-              {t("Longest finding summary shown in a message, 0–{max}. 0 = no truncation.", { max: SUMMARY_LIMIT_MAX })}
-            </p>
+            <p className="text-muted-foreground text-xs">{t("page.global.summaryHelp", { max: SUMMARY_LIMIT_MAX })}</p>
           </div>
           <div className="grid gap-2">
-            <Label htmlFor="n-assets-max">{t("Assets listed per finding")}</Label>
+            <Label htmlFor="n-assets-max">{t("page.global.assetsListed")}</Label>
             <Input
               id="n-assets-max"
               type="number"
@@ -396,13 +401,11 @@ export default function NotifyPage() {
               onChange={(e) => setAssetsMax(e.target.value)}
               aria-invalid={limitInvalid(assetsMax, ASSETS_LIMIT_MAX)}
             />
-            <p className="text-muted-foreground text-xs">
-              {t("Most asset names listed for a finding, 0–{max}. 0 = no truncation (all assets listed).", { max: ASSETS_LIMIT_MAX })}
-            </p>
+            <p className="text-muted-foreground text-xs">{t("page.global.assetsHelp", { max: ASSETS_LIMIT_MAX })}</p>
           </div>
           <div className="sm:col-span-2">
             <Button onClick={saveGlobal} disabled={globalSaving}>
-              {t("Save global settings")}
+              {t("page.global.save")}
             </Button>
           </div>
         </CardContent>
@@ -410,8 +413,8 @@ export default function NotifyPage() {
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as "channels" | "deliveries")} className="flex flex-col gap-4">
         <TabsList>
-          <TabsTrigger value="channels">{t("Channels")}</TabsTrigger>
-          <TabsTrigger value="deliveries">{t("Delivery log")}</TabsTrigger>
+          <TabsTrigger value="channels">{t("page.tabs.channels")}</TabsTrigger>
+          <TabsTrigger value="deliveries">{t("page.tabs.deliveryLog")}</TabsTrigger>
         </TabsList>
 
         <TabsContent value="channels">
@@ -422,7 +425,7 @@ export default function NotifyPage() {
               className="text-foreground/70 border-foreground/70 hover:bg-muted/60 hover:shadow-sm flex min-h-[130px] flex-col items-center justify-center gap-2 rounded-xl border border-dashed transition"
             >
               <PlusIcon className="size-6" />
-              <span className="text-sm">{t("Add channel")}</span>
+              <span className="text-sm">{t("page.channels.add")}</span>
             </button>
 
             {channels.map((ch) => (
@@ -444,12 +447,12 @@ export default function NotifyPage() {
                         checked={ch.enabled}
                         onCheckedChange={() => toggleEnabled(ch)}
                         onClick={(e) => e.stopPropagation()}
-                        aria-label={t("Enable")}
+                        aria-label={t("page.channels.enableAria")}
                       />
                       <Button
                         size="icon"
                         variant="outline"
-                        aria-label={t("Delete")}
+                        aria-label={t("page.channels.deleteAria")}
                         onClick={(e) => {
                           e.stopPropagation();
                           // void explicitly discards the Promise: removeChannel catches and toasts on its own,
@@ -464,9 +467,13 @@ export default function NotifyPage() {
                 </CardHeader>
                 <CardContent className="grid gap-3">
                   <div className="flex flex-wrap items-center gap-2">
-                    <Badge variant="outline">{KIND_LABEL[ch.kind] ?? ch.kind}</Badge>
-                    <Badge variant="outline">{ch.mode === "digest" ? t("Digest") : t("Realtime")}</Badge>
-                    {!ch.enabled && <Badge variant="outline">{t("Disabled")}</Badge>}
+                    <Badge variant="outline">
+                      {t.has(`kindLabel.${ch.kind}`) ? t(`kindLabel.${ch.kind}`) : (KIND_LABEL[ch.kind] ?? ch.kind)}
+                    </Badge>
+                    <Badge variant="outline">
+                      {ch.mode === "digest" ? t("page.mode.digest") : t("page.mode.realtime")}
+                    </Badge>
+                    {!ch.enabled && <Badge variant="outline">{t("page.channels.disabled")}</Badge>}
                   </div>
                   <FilterSummary filter={ch.filter} />
                 </CardContent>
@@ -483,18 +490,17 @@ export default function NotifyPage() {
       <Sheet open={open} onOpenChange={setOpen}>
         <SheetContent side="right" className="w-full data-[side=right]:sm:max-w-lg">
           <SheetHeader>
-            <SheetTitle>{editing ? editing.name : t("Add notification channel")}</SheetTitle>
+            <SheetTitle>{editing ? editing.name : t("page.form.addTitle")}</SheetTitle>
             <SheetDescription>
-              {KIND_LABEL[form.kind] ?? form.kind}
-              {" · "}
-              {defaultRate > 0 ? t("default rate limit {rate}/min", { rate: defaultRate }) : t("no rate limit")}
+              {t.has(`kindLabel.${form.kind}`) ? t(`kindLabel.${form.kind}`) : (KIND_LABEL[form.kind] ?? form.kind)}
+              {defaultRate > 0 ? t("page.form.defaultRateLimit", { rate: defaultRate }) : t("page.form.noRateLimit")}
             </SheetDescription>
           </SheetHeader>
 
           <div className="flex min-h-0 flex-1 flex-col overflow-y-auto px-4">
             <div className="grid gap-4 py-4">
               <div className="grid gap-2">
-                <Label>{t("Channel type")}</Label>
+                <Label>{t("page.form.channelType")}</Label>
                 <Select
                   value={form.kind}
                   onValueChange={(v) => {
@@ -509,37 +515,32 @@ export default function NotifyPage() {
                   <SelectContent>
                     {(meta?.kinds ?? []).map((k) => (
                       <SelectItem key={k.kind} value={k.kind}>
-                        {KIND_LABEL[k.kind] ?? k.kind}
+                        {t.has(`kindLabel.${k.kind}`) ? t(`kindLabel.${k.kind}`) : (KIND_LABEL[k.kind] ?? k.kind)}
                       </SelectItem>
                     ))}
                   </SelectContent>
                 </Select>
-                {editing && (
-                  <p className="text-muted-foreground text-xs">
-                    {t("The channel type cannot be changed — a different type means a different set of credentials; create a new channel instead.")}
-                  </p>
-                )}
+                {editing && <p className="text-muted-foreground text-xs">{t("page.form.typeLocked")}</p>}
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="n-name">{t("Channel name")}</Label>
+                <Label htmlFor="n-name">{t("page.form.channelName")}</Label>
                 <Input
                   id="n-name"
-                  placeholder={t("Incident response group / Daily broadcast group")}
+                  placeholder={t("page.form.namePlaceholder")}
                   value={form.name}
                   onChange={(e) => setF({ name: e.target.value })}
                 />
               </div>
 
               {fields.length === 0 ? (
-                <p className="text-muted-foreground text-sm">
-                  {t("The form for this channel type is not defined yet (the frontend is missing a CHANNEL_FIELDS entry); add it and retry.")}
-                </p>
+                <p className="text-muted-foreground text-sm">{t("page.form.noFieldsDefined")}</p>
               ) : (
                 fields.map((d) => (
                   <ConfigField
                     key={d.key}
                     def={d}
+                    channel={form.kind}
                     value={form.config[d.key]}
                     isSecret={secretKeys.has(d.key)}
                     onChange={(v) => setCfg(d.key, v)}
@@ -548,41 +549,37 @@ export default function NotifyPage() {
               )}
 
               <div className="grid gap-2">
-                <Label>{t("Delivery timing")}</Label>
+                <Label>{t("page.form.deliveryTiming")}</Label>
                 <Select value={form.mode} onValueChange={(v) => setF({ mode: v as "realtime" | "digest" })}>
                   <SelectTrigger>
                     <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="realtime">{t("Realtime · one message per finding")}</SelectItem>
-                    <SelectItem value="digest">{t("Digest · merged into one message per interval")}</SelectItem>
+                    <SelectItem value="realtime">{t("page.form.modeRealtime")}</SelectItem>
+                    <SelectItem value="digest">{t("page.form.modeDigest")}</SelectItem>
                   </SelectContent>
                 </Select>
-                <p className="text-muted-foreground text-xs">
-                  {t("For \"realtime for High, digest for the rest\", create two channels: one realtime with a High threshold, one digest with no severity limit.")}
-                </p>
+                <p className="text-muted-foreground text-xs">{t("page.form.modeHelp")}</p>
               </div>
 
               <div className="grid gap-2">
-                <Label htmlFor="n-rate">{t("Rate limit (messages/min)")}</Label>
+                <Label htmlFor="n-rate">{t("page.form.rateLimit")}</Label>
                 <Input
                   id="n-rate"
                   type="number"
                   min={0}
-                  placeholder={defaultRate > 0 ? String(defaultRate) : t("0 = unlimited")}
+                  placeholder={defaultRate > 0 ? String(defaultRate) : t("page.form.rateUnlimited")}
                   value={form.ratePerMin}
                   onChange={(e) => setF({ ratePerMin: e.target.value })}
                 />
-                <p className="text-muted-foreground text-xs">
-                  {t("Leave empty to use the channel default; 0 means no limit. Going over the limit never drops messages, only delays them.")}
-                </p>
+                <p className="text-muted-foreground text-xs">{t("page.form.rateHelp")}</p>
               </div>
 
               <div className="border-t pt-4">
-                <p className="mb-3 text-sm font-medium">{t("Filter rules (empty = no filtering)")}</p>
+                <p className="mb-3 text-sm font-medium">{t("page.form.filterRules")}</p>
                 <div className="grid gap-4">
                   <div className="grid gap-2">
-                    <Label>{t("Minimum severity")}</Label>
+                    <Label>{t("page.form.minSeverity")}</Label>
                     <Select
                       value={form.minSeverity || "all"}
                       onValueChange={(v) => setF({ minSeverity: v === "all" ? "" : v })}
@@ -593,36 +590,36 @@ export default function NotifyPage() {
                       <SelectContent>
                         {SEVERITY_OPTIONS.map((o) => (
                           <SelectItem key={o.value || "all"} value={o.value || "all"}>
-                            {o.label}
+                            {t.has(`severityOption.${o.value || "all"}`)
+                              ? t(`severityOption.${o.value || "all"}`)
+                              : o.label}
                           </SelectItem>
                         ))}
                       </SelectContent>
                     </Select>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="n-inc">{t("Only these vulnerability types")}</Label>
+                    <Label htmlFor="n-inc">{t("page.form.includeLabel")}</Label>
                     <Textarea
                       id="n-inc"
-                      placeholder={"SQL injection\ncommand execution"}
+                      placeholder={t("page.form.includePlaceholder")}
                       value={form.includeText}
                       onChange={(e) => setF({ includeText: e.target.value })}
                     />
-                    <p className="text-muted-foreground text-xs">
-                      {t("One keyword per line, matched case-insensitively as a substring. Leave empty for all types.")}
-                    </p>
+                    <p className="text-muted-foreground text-xs">{t("page.form.includeHelp")}</p>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="n-exc">{t("Exclude these vulnerability types")}</Label>
+                    <Label htmlFor="n-exc">{t("page.form.excludeLabel")}</Label>
                     <Textarea
                       id="n-exc"
-                      placeholder={"Information disclosure"}
+                      placeholder={t("page.form.excludePlaceholder")}
                       value={form.excludeText}
                       onChange={(e) => setF({ excludeText: e.target.value })}
                     />
-                    <p className="text-muted-foreground text-xs">{t("Exclusion beats inclusion: an item matching both is excluded.")}</p>
+                    <p className="text-muted-foreground text-xs">{t("page.form.excludeHelp")}</p>
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="n-tasks">{t("Restrict to task IDs")}</Label>
+                    <Label htmlFor="n-tasks">{t("page.form.taskIds")}</Label>
                     <Input
                       id="n-tasks"
                       placeholder="1, 2, 3"
@@ -631,39 +628,43 @@ export default function NotifyPage() {
                     />
                   </div>
                   <div className="grid gap-2">
-                    <Label htmlFor="n-assets">{t("Restrict to asset IDs")}</Label>
+                    <Label htmlFor="n-assets">{t("page.form.assetIds")}</Label>
                     <Input
                       id="n-assets"
                       placeholder="10, 11"
                       value={form.assetIDsText}
                       onChange={(e) => setF({ assetIDsText: e.target.value })}
                     />
-                    <p className="text-muted-foreground text-xs">{t("Empty task/asset = no restriction; when filled, the finding must intersect them.")}</p>
+                    <p className="text-muted-foreground text-xs">{t("page.form.idsHelp")}</p>
                   </div>
                   <div className="flex items-center gap-2 text-sm">
                     <Switch
                       checked={form.onStatusChange}
                       onCheckedChange={(v) => setF({ onStatusChange: v })}
-                      aria-label={t("Include status changes")}
+                      aria-label={t("page.form.statusChangeAria")}
                     />
-                    {t("Also push when a finding's status changes (realtime mode only)")}
+                    {t("page.form.statusChangeLabel")}
                   </div>
                 </div>
               </div>
 
               <div className="flex items-center gap-2 text-sm">
-                <Switch checked={form.enabled} onCheckedChange={(v) => setF({ enabled: v })} aria-label={t("Enable")} />
-                {t("Enable this channel")}
+                <Switch
+                  checked={form.enabled}
+                  onCheckedChange={(v) => setF({ enabled: v })}
+                  aria-label={t("page.form.enableAria")}
+                />
+                {t("page.form.enableChannel")}
               </div>
             </div>
 
             <div className="flex gap-2 pt-2 pb-6">
               <Button onClick={saveForm} disabled={saving}>
-                {editing ? t("Save") : t("Add")}
+                {editing ? t("page.form.save") : t("page.form.add")}
               </Button>
               {editing && (
                 <Button variant="outline" onClick={testChannel} disabled={testing}>
-                  <SendIcon /> {t("Send test message")}
+                  <SendIcon /> {t("page.form.sendTest")}
                 </Button>
               )}
             </div>

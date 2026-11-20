@@ -1,13 +1,16 @@
 "use client";
 
 import * as React from "react";
+
+import { useTranslations } from "next-intl";
+
 import { Button } from "@/components/ui/button";
 import { api } from "@/lib/api";
 import type { Activity, InterceptExecution } from "@/lib/types";
-import { t } from "@/i18n";
 
 // Resolve one exact persisted call, independently of transcript pagination.
 export function useApprovalFocus({ taskId, conversationId }: { taskId?: string; conversationId?: number }) {
+  const t = useTranslations("approvalExecutionFocus");
   const [state, setState] = React.useState<{
     id: number;
     source?: InterceptExecution;
@@ -35,17 +38,18 @@ export function useApprovalFocus({ taskId, conversationId }: { taskId?: string; 
             ? source.conversation_id !== conversationId
             : source.task_id !== taskId || source.conversation_id != null
         ) {
-          throw new Error(t("Approval source does not match the current conversation"));
+          throw new Error(t("errors.sourceMismatch"));
         }
         setState({ id, source, loading: false });
       })
       .catch((e) => {
-        if (!cancelled) setState({ id, error: (e as Error).message || t("Unable to locate the original execution"), loading: false });
+        if (!cancelled)
+          setState({ id, error: (e as Error).message || t("errors.originalExecutionNotFound"), loading: false });
       });
     return () => {
       cancelled = true;
     };
-  }, [taskId, conversationId, revision]);
+  }, [taskId, conversationId, revision, t]);
   const close = React.useCallback(() => {
     const url = new URL(window.location.href);
     url.searchParams.delete("approval");
@@ -66,6 +70,7 @@ export function useApprovalHistory(
   loadPage: (before: number) => Promise<HistoryPage>,
   mergePage: (page: HistoryPage) => void,
 ) {
+  const t = useTranslations("approvalExecutionFocus");
   const itemsRef = React.useRef(items);
   itemsRef.current = items;
   const [result, setResult] = React.useState<{ source: InterceptExecution; error?: string }>();
@@ -79,13 +84,13 @@ export function useApprovalHistory(
         const page = await loadPage(before);
         if (cancelled) return;
         if (!page.items.length || (before > 0 && page.items[0].seq >= before)) {
-          throw new Error(t("Matching tool call not found in the conversation; the record may have been deleted"));
+          throw new Error(t("errors.toolCallNotFoundDeleted"));
         }
         mergePage(page);
         current = page.items;
         before = current[0].seq;
         if (!page.hasMore && !current.some((a) => a.seq === source.seq)) {
-          throw new Error(t("Matching tool call not found in the conversation"));
+          throw new Error(t("errors.toolCallNotFound"));
         }
       }
       if (!cancelled) setResult({ source });
@@ -95,7 +100,7 @@ export function useApprovalHistory(
     return () => {
       cancelled = true;
     };
-  }, [source, loaded, loadPage, mergePage]);
+  }, [source, loaded, loadPage, mergePage, t]);
   return {
     ready: !!source && result?.source === source && !result.error,
     error: result?.source === source ? result?.error : undefined,
@@ -109,6 +114,7 @@ export function ApprovalExecutionFocus({
   focus: ReturnType<typeof useApprovalFocus>;
   history: ReturnType<typeof useApprovalHistory>;
 }) {
+  const t = useTranslations("approvalExecutionFocus");
   const { state } = focus;
   if (!state) return null;
   const error = state.error || history.error;
@@ -119,19 +125,19 @@ export function ApprovalExecutionFocus({
     >
       <span className={error ? "text-destructive" : "text-muted-foreground"}>
         {error
-          ? t("Unable to locate: {error}", { error })
+          ? t("status.unableToLocate", { error })
           : history.ready
-            ? t("Expanded the tool call for approval #{id}", { id: state.id })
-            : t("Loading the conversation position of approval #{id}…", { id: state.id })}
+            ? t("status.expanded", { id: state.id })
+            : t("status.loading", { id: state.id })}
       </span>
       <div className="flex gap-2">
         {error ? (
           <Button size="sm" variant="outline" onClick={focus.retry}>
-            {t("Retry locate")}
+            {t("actions.retry")}
           </Button>
         ) : null}
         <Button size="sm" variant="ghost" onClick={focus.close}>
-          {t("Cancel locate")}
+          {t("actions.cancel")}
         </Button>
       </div>
     </div>

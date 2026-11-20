@@ -3,9 +3,9 @@
 import * as React from "react";
 
 import { SearchIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 
 import { Input } from "@/components/ui/input";
-import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 // ── DSL autocomplete ──────────────────────────────────────────────────────────
@@ -15,167 +15,167 @@ import { cn } from "@/lib/utils";
 const DSL_FIELDS: { name: string; desc: string; ops: { op: string; desc: string }[] }[] = [
   {
     name: "domain",
-    desc: t("Domain (root domain/subdomain/service domain)"),
+    desc: "Domain (root domain/subdomain/service domain)",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "ip",
-    desc: t("IPv4/IPv6 address"),
+    desc: "IPv4/IPv6 address",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "url",
-    desc: t("Full URL (service/endpoint)"),
+    desc: "Full URL (service/endpoint)",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "root_domain",
-    desc: t("Root domain"),
+    desc: "Root domain",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "page_title",
-    desc: t("Page title (HTTP service)"),
+    desc: "Page title (HTTP service)",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "icp",
-    desc: t("ICP filing number"),
+    desc: "ICP filing number",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "service_name",
-    desc: t("Service name (non-HTTP service)"),
+    desc: "Service name (non-HTTP service)",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "app_name",
-    desc: t("App name"),
+    desc: "App name",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "bundle_id",
-    desc: t("App Bundle ID"),
+    desc: "App Bundle ID",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "category",
-    desc: t("App category"),
+    desc: "App category",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "app_icp",
-    desc: t("App ICP filing"),
+    desc: "App ICP filing",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "method",
-    desc: t("HTTP method GET/POST/PUT/…"),
+    desc: "HTTP method GET/POST/PUT/…",
     ops: [
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "service_type",
-    desc: t("Service type: http | other"),
+    desc: "Service type: http | other",
     ops: [
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "record_type",
-    desc: t("DNS record type A/CNAME/MX/…"),
+    desc: "DNS record type A/CNAME/MX/…",
     ops: [
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "technology",
-    desc: t("Technology fingerprint (array field)"),
+    desc: "Technology fingerprint (array field)",
     ops: [
-      { op: "=", desc: t("fuzzy match") },
-      { op: "==", desc: t("exact match") },
-      { op: "!=", desc: t("exclude") },
+      { op: "=", desc: "fuzzy match" },
+      { op: "==", desc: "exact match" },
+      { op: "!=", desc: "exclude" },
     ],
   },
   {
     name: "port",
-    desc: t("Port number (integer)"),
+    desc: "Port number (integer)",
     ops: [
-      { op: "==", desc: t("equals") },
-      { op: "!=", desc: t("not equals") },
-      { op: ">", desc: t("greater than") },
-      { op: ">=", desc: t("greater than or equal") },
-      { op: "<", desc: t("less than") },
-      { op: "<=", desc: t("less than or equal") },
+      { op: "==", desc: "equals" },
+      { op: "!=", desc: "not equals" },
+      { op: ">", desc: "greater than" },
+      { op: ">=", desc: "greater than or equal" },
+      { op: "<", desc: "less than" },
+      { op: "<=", desc: "less than or equal" },
     ],
   },
   {
     name: "status_code",
-    desc: t("HTTP status code (integer)"),
+    desc: "HTTP status code (integer)",
     ops: [
-      { op: "==", desc: t("equals") },
-      { op: "!=", desc: t("not equals") },
-      { op: ">", desc: t("greater than") },
-      { op: ">=", desc: t("greater than or equal") },
-      { op: "<", desc: t("less than") },
-      { op: "<=", desc: t("less than or equal") },
+      { op: "==", desc: "equals" },
+      { op: "!=", desc: "not equals" },
+      { op: ">", desc: "greater than" },
+      { op: ">=", desc: "greater than or equal" },
+      { op: "<", desc: "less than" },
+      { op: "<=", desc: "less than or equal" },
     ],
   },
-  { name: "company_id", desc: t("Owning company ID (integer)"), ops: [{ op: "==", desc: t("equals") }] },
-  { name: "task_id", desc: t("Source task ID (integer)"), ops: [{ op: "==", desc: t("equals") }] },
+  { name: "company_id", desc: "Owning company ID (integer)", ops: [{ op: "==", desc: "equals" }] },
+  { name: "task_id", desc: "Source task ID (integer)", ops: [{ op: "==", desc: "equals" }] },
 ];
 
 const LOGIC_OPS = [
-  { label: "AND", desc: t("AND (both conditions must match)") },
-  { label: "OR", desc: t("OR (either one matches)") },
+  { label: "AND", desc: "AND (both conditions must match)" },
+  { label: "OR", desc: "OR (either one matches)" },
 ];
 
 interface DslSuggestion {
@@ -277,6 +277,7 @@ export function AssetDslSearch({
   error: string;
   count?: number;
 }) {
+  const t = useTranslations("assetDslSearch");
   const inputRef = React.useRef<HTMLInputElement>(null);
   const [suggestions, setSuggestions] = React.useState<DslSuggestion[]>([]);
   const [selIdx, setSelIdx] = React.useState(0);
@@ -315,6 +316,19 @@ export function AssetDslSearch({
     [query, onChange, refresh],
   );
 
+  // Resolve a suggestion's desc to Korean via the i18n maps, keyed by the literal
+  // field name / AND-OR token / operator desc. Falls back to the English desc.
+  const descText = React.useCallback(
+    (s: DslSuggestion) => {
+      let key: string;
+      if (s.kind === "field") key = `fieldDesc.${s.label}`;
+      else if (s.kind === "logic") key = `logicDesc.${s.label}`;
+      else key = `opDesc.${s.desc}`;
+      return t.has(key) ? t(key) : s.desc;
+    },
+    [t],
+  );
+
   const handleKeyDown = (e: React.KeyboardEvent<HTMLInputElement>) => {
     if (!open || suggestions.length === 0) return;
     if (e.key === "ArrowDown") {
@@ -342,7 +356,7 @@ export function AssetDslSearch({
         <SearchIcon className="pointer-events-none absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
         <Input
           ref={inputRef}
-          placeholder={t("DSL search: {example}", { example: "domain=example AND status_code>=400" })}
+          placeholder={t("placeholder")}
           value={query}
           onChange={handleChange}
           onKeyDown={handleKeyDown}
@@ -368,7 +382,7 @@ export function AssetDslSearch({
                 }}
               >
                 <span className={cn("shrink-0 font-mono text-xs font-semibold", KIND_STYLE[s.kind])}>{s.label}</span>
-                <span className="text-xs text-muted-foreground">{s.desc}</span>
+                <span className="text-xs text-muted-foreground">{descText(s)}</span>
               </button>
             ))}
           </div>
@@ -377,11 +391,11 @@ export function AssetDslSearch({
       {query.trim() && !open && (
         <p className="pl-1 text-[11px] text-muted-foreground">
           {loading ? (
-            t("Searching…")
+            t("status.searching")
           ) : error ? (
             <span className="text-destructive">{error}</span>
           ) : (
-            t("Found {count}", { count: count ?? 0 })
+            t("status.found", { count: count ?? 0 })
           )}
         </p>
       )}

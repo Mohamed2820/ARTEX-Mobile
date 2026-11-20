@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { LibraryIcon, PlusIcon, SaveIcon, Settings2Icon, Trash2Icon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { AssetInterceptRulesEditor } from "@/components/asset-intercept-rules-editor";
@@ -34,7 +35,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import type { AssetInterceptRuleInput, TaskCategory, TaskTemplate } from "@/lib/types";
-import { t } from "@/i18n";
 import { cn } from "@/lib/utils";
 
 interface TemplateDraft {
@@ -85,6 +85,7 @@ function TaskTemplateManager({
   onUpdated,
   onDeleted,
 }: TaskTemplateManagerProps) {
+  const t = useTranslations("taskTemplateControls");
   const [selectedID, setSelectedID] = React.useState<number | null>(null);
   const [draft, setDraft] = React.useState<TemplateDraft>(emptyDraft);
   const [saving, setSaving] = React.useState(false);
@@ -152,7 +153,7 @@ function TaskTemplateManager({
         .filter((r) => r.pattern !== ""),
     };
     if (!input.name || !input.description || !input.goal) {
-      toast.error(t("Fill in the template name, description, and goal"));
+      toast.error(t("toasts.validation"));
       return;
     }
     setSaving(true);
@@ -162,15 +163,15 @@ function TaskTemplateManager({
         onCreated(created);
         setSelectedID(created.id);
         setDraft(templateDraft(created));
-        toast.success(t("Template created"));
+        toast.success(t("toasts.created"));
       } else {
         const updated = await api.updateTaskTemplate(selectedID, input);
         onUpdated(updated);
         setDraft(templateDraft(updated));
-        toast.success(t("Template updated"));
+        toast.success(t("toasts.updated"));
       }
     } catch (error) {
-      toast.error(t("Save failed: {error}", { error: (error as Error).message }));
+      toast.error(t("toasts.saveFailed", { message: (error as Error).message }));
     } finally {
       setSaving(false);
     }
@@ -191,39 +192,35 @@ function TaskTemplateManager({
         startNew();
       }
       setDeleteOpen(false);
-      toast.success(t("Template deleted"));
+      toast.success(t("toasts.deleted"));
     } catch (error) {
-      toast.error(t("Delete failed: {error}", { error: (error as Error).message }));
+      toast.error(t("toasts.deleteFailed", { message: (error as Error).message }));
     } finally {
       setDeleting(false);
     }
   }
 
-  let saveLabel = saving ? t("Saving") : t("Save changes");
-  if (!saving && selectedID == null) saveLabel = t("Create template");
+  let saveLabel = saving ? t("manager.footer.saving") : t("manager.footer.saveChanges");
+  if (!saving && selectedID == null) saveLabel = t("manager.footer.createTemplate");
 
   return (
     <>
       <Sheet open={open} onOpenChange={onOpenChange}>
         <SheetContent className="grid h-full w-full! max-w-none! grid-rows-[auto_minmax(0,1fr)_auto] gap-0 overflow-hidden p-0 sm:w-[48rem]! sm:max-w-[48rem]!">
           <SheetHeader className="border-b px-6 py-5">
-            <SheetTitle>{t("Task template management")}</SheetTitle>
-            <SheetDescription>
-              {t(
-                "Templates store the description, goal, category, and task-level intercept/allow rules; edits do not affect already-created tasks.",
-              )}
-            </SheetDescription>
+            <SheetTitle>{t("manager.title")}</SheetTitle>
+            <SheetDescription>{t("manager.description")}</SheetDescription>
           </SheetHeader>
           <div className="grid min-h-0 overflow-y-auto lg:grid-cols-[15rem_minmax(0,1fr)] lg:overflow-hidden">
             <div className="flex min-h-0 flex-col border-b p-3 lg:border-r lg:border-b-0">
               <Button type="button" variant="outline" className="w-full" onClick={startNew}>
                 <PlusIcon data-icon="inline-start" />
-                {t("Create template")}
+                {t("manager.createTemplate")}
               </Button>
               <ScrollArea className="mt-2 max-h-44 lg:max-h-none lg:flex-1">
                 <div className="flex flex-col gap-1 pr-2">
                   {templates.length === 0 && (
-                    <p className="px-2 py-6 text-center text-muted-foreground text-sm">{t("No templates yet")}</p>
+                    <p className="px-2 py-6 text-center text-muted-foreground text-sm">{t("manager.noTemplates")}</p>
                   )}
                   {templates.map((template) => (
                     <button
@@ -245,37 +242,37 @@ function TaskTemplateManager({
             <ScrollArea className="min-h-0">
               <FieldGroup className="p-6">
                 <Field>
-                  <FieldLabel htmlFor="task-template-name">{t("Template name")}</FieldLabel>
+                  <FieldLabel htmlFor="task-template-name">{t("manager.fields.name")}</FieldLabel>
                   <Input
                     id="task-template-name"
                     value={draft.name}
                     maxLength={120}
-                    placeholder={t("e.g. External web penetration testing")}
+                    placeholder={t("manager.fields.namePlaceholder")}
                     onChange={(event) => updateDraft("name", event.target.value)}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="task-template-description">{t("Description")}</FieldLabel>
+                  <FieldLabel htmlFor="task-template-description">{t("manager.fields.description")}</FieldLabel>
                   <Textarea
                     id="task-template-description"
                     className="min-h-28"
                     value={draft.description}
-                    placeholder={t("Test target and background")}
+                    placeholder={t("manager.fields.descriptionPlaceholder")}
                     onChange={(event) => updateDraft("description", event.target.value)}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="task-template-goal">{t("Goal")}</FieldLabel>
+                  <FieldLabel htmlFor="task-template-goal">{t("manager.fields.goal")}</FieldLabel>
                   <Textarea
                     id="task-template-goal"
                     className="min-h-28"
                     value={draft.goal}
-                    placeholder={t("Goals the task needs to achieve")}
+                    placeholder={t("manager.fields.goalPlaceholder")}
                     onChange={(event) => updateDraft("goal", event.target.value)}
                   />
                 </Field>
                 <Field>
-                  <FieldLabel htmlFor="task-template-category">{t("Task category")}</FieldLabel>
+                  <FieldLabel htmlFor="task-template-category">{t("manager.fields.category")}</FieldLabel>
                   <NativeSelect
                     id="task-template-category"
                     className="w-full"
@@ -284,24 +281,22 @@ function TaskTemplateManager({
                       patchDraft({ categoryID: event.target.value === "" ? null : Number(event.target.value) })
                     }
                   >
-                    <NativeSelectOption value="">{t("Uncategorized")}</NativeSelectOption>
+                    <NativeSelectOption value="">{t("manager.fields.categoryUncategorized")}</NativeSelectOption>
                     {categories.map((c) => (
                       <NativeSelectOption key={c.id} value={String(c.id)}>
                         {c.name}
                       </NativeSelectOption>
                     ))}
                   </NativeSelect>
-                  <FieldDescription>{t("This category is prefilled when the template is applied (still editable).")}</FieldDescription>
+                  <FieldDescription>{t("manager.fields.categoryHint")}</FieldDescription>
                 </Field>
                 <Field>
-                  <FieldLabel>{t("Task-level intercept / allow rules")}</FieldLabel>
+                  <FieldLabel>{t("manager.fields.rules")}</FieldLabel>
                   <AssetInterceptRulesEditor
                     value={draft.interceptRules}
                     onChange={(rules) => patchDraft({ interceptRules: rules })}
                   />
-                  <FieldDescription>
-                    {t("These task-level rules are prefilled when the template is applied (intercept/allow, effective only for new tasks, never global).")}
-                  </FieldDescription>
+                  <FieldDescription>{t("manager.fields.rulesHint")}</FieldDescription>
                 </Field>
               </FieldGroup>
             </ScrollArea>
@@ -310,11 +305,11 @@ function TaskTemplateManager({
             {selectedID != null && (
               <Button type="button" variant="destructive" className="sm:mr-auto" onClick={() => setDeleteOpen(true)}>
                 <Trash2Icon data-icon="inline-start" />
-                {t("Delete template")}
+                {t("manager.footer.deleteTemplate")}
               </Button>
             )}
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
-              {t("Close")}
+              {t("manager.footer.close")}
             </Button>
             <Button type="button" disabled={saving} onClick={() => void save()}>
               {saving ? <Spinner data-icon="inline-start" /> : <SaveIcon data-icon="inline-start" />}
@@ -326,11 +321,13 @@ function TaskTemplateManager({
       <AlertDialog open={deleteOpen} onOpenChange={setDeleteOpen}>
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('Delete template "{name}"?', { name: draft.name || t("Untitled template") })}</AlertDialogTitle>
-            <AlertDialogDescription>{t("Tasks already created from this template are not affected.")}</AlertDialogDescription>
+            <AlertDialogTitle>
+              {t("deleteDialog.title", { name: draft.name || t("deleteDialog.untitled") })}
+            </AlertDialogTitle>
+            <AlertDialogDescription>{t("deleteDialog.description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("deleteDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               variant="destructive"
               disabled={deleting}
@@ -340,7 +337,7 @@ function TaskTemplateManager({
               }}
             >
               {deleting && <Spinner data-icon="inline-start" />}
-              {deleting ? t("Deleting") : t("Delete")}
+              {deleting ? t("deleteDialog.deleting") : t("deleteDialog.delete")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>
@@ -370,6 +367,7 @@ export function TaskTemplateControls({
   onApply,
   portalContainer,
 }: TaskTemplateControlsProps) {
+  const t = useTranslations("taskTemplateControls");
   const [templates, setTemplates] = React.useState<TaskTemplate[]>([]);
   const [loading, setLoading] = React.useState(true);
   const [templateInputValue, setTemplateInputValue] = React.useState("");
@@ -383,11 +381,11 @@ export function TaskTemplateControls({
       setTemplates(await api.taskTemplates());
     } catch (error) {
       setTemplates([]);
-      toast.error(t("Failed to load templates: {error}", { error: (error as Error).message }));
+      toast.error(t("toasts.loadFailed", { message: (error as Error).message }));
     } finally {
       setLoading(false);
     }
-  }, []);
+  }, [t]);
 
   React.useEffect(() => {
     void loadTemplates();
@@ -438,18 +436,18 @@ export function TaskTemplateControls({
     if (selectedTemplateID === id) onSelectedTemplateIDChange(null);
   };
 
-  let pickerPlaceholder = loading ? t("Loading templates") : t("No task templates yet");
-  if (!loading && templates.length > 0) pickerPlaceholder = t("Search and select a task template");
+  let pickerPlaceholder = loading ? t("picker.placeholderLoading") : t("picker.placeholderEmpty");
+  if (!loading && templates.length > 0) pickerPlaceholder = t("picker.placeholderReady");
 
   return (
     <>
       <Field>
         <div className="flex flex-wrap items-center justify-between gap-2">
-          <FieldLabel htmlFor="task-template-picker">{t("Task template")}</FieldLabel>
+          <FieldLabel htmlFor="task-template-picker">{t("picker.label")}</FieldLabel>
           <div className="flex flex-wrap gap-2">
             <Button type="button" variant="ghost" size="sm" onClick={() => openManager(null)}>
               <Settings2Icon data-icon="inline-start" />
-              {t("Manage templates")}
+              {t("actions.manage")}
             </Button>
             <Button
               type="button"
@@ -466,7 +464,7 @@ export function TaskTemplateControls({
               }
             >
               <SaveIcon data-icon="inline-start" />
-              {t("Save as template")}
+              {t("actions.saveAsTemplate")}
             </Button>
           </div>
         </div>
@@ -487,7 +485,7 @@ export function TaskTemplateControls({
             showClear
           />
           <ComboboxContent portalContainer={portalContainer}>
-            <ComboboxEmpty>{t("No matching templates")}</ComboboxEmpty>
+            <ComboboxEmpty>{t("picker.empty")}</ComboboxEmpty>
             <ComboboxList>
               {(template) => (
                 <ComboboxItem key={template.id} value={template}>
@@ -503,11 +501,7 @@ export function TaskTemplateControls({
             </ComboboxList>
           </ComboboxContent>
         </Combobox>
-        <FieldDescription>
-          {t(
-            "Selecting copies the template's description, goal, category, and task-level rules; no link to the template is kept.",
-          )}
-        </FieldDescription>
+        <FieldDescription>{t("picker.description")}</FieldDescription>
       </Field>
 
       <AlertDialog
@@ -520,15 +514,13 @@ export function TaskTemplateControls({
       >
         <AlertDialogContent>
           <AlertDialogHeader>
-            <AlertDialogTitle>{t('Use template "{name}"?', { name: pendingTemplate?.name ?? "" })}</AlertDialogTitle>
-            <AlertDialogDescription>
-              {t("The description and goal already filled in will be overwritten by the template.")}
-            </AlertDialogDescription>
+            <AlertDialogTitle>{t("applyDialog.title", { name: pendingTemplate?.name ?? "" })}</AlertDialogTitle>
+            <AlertDialogDescription>{t("applyDialog.description")}</AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel>{t("applyDialog.cancel")}</AlertDialogCancel>
             <AlertDialogAction onClick={() => pendingTemplate && applyTemplate(pendingTemplate)}>
-              {t("Overwrite and use")}
+              {t("applyDialog.confirm")}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

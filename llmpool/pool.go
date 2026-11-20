@@ -10,7 +10,6 @@ import (
 	"strconv"
 	"strings"
 	"sync/atomic"
-	"unicode/utf8"
 
 	"github.com/Autumn-27/norma/llm"
 )
@@ -263,11 +262,7 @@ func isHardFailure(err error) bool {
 func trimErr(err error) string {
 	s := strings.TrimSpace(strings.ReplaceAll(err.Error(), "\n", " "))
 	if len(s) > 300 {
-		cut := 300
-		for cut > 0 && !utf8.RuneStart(s[cut]) {
-			cut--
-		}
-		s = s[:cut] + "…"
+		s = s[:300] + "…"
 	}
 	return s
 }

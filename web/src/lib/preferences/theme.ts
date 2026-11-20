@@ -1,9 +1,7 @@
-import { t } from "@/i18n";
-
 export const THEME_MODE_OPTIONS = [
-  { label: t("Light"), value: "light" },
-  { label: t("Dark"), value: "dark" },
-  { label: t("System"), value: "system" },
+  { label: "Light", value: "light" },
+  { label: "Dark", value: "dark" },
+  { label: "System", value: "system" },
 ] as const;
 
 export const THEME_MODE_VALUES = THEME_MODE_OPTIONS.map((o) => o.value);
@@ -14,7 +12,7 @@ export type ResolvedThemeMode = "light" | "dark";
 
 export const THEME_PRESET_OPTIONS = [
   {
-    label: t("Default"),
+    label: "Default",
     value: "default",
     primary: {
       light: "oklch(0.205 0 0)",

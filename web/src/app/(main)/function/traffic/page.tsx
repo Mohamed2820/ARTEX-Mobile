@@ -15,6 +15,7 @@ import {
   SearchIcon,
   Trash2Icon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { HttpCodeBlock } from "@/components/http-code-block";
@@ -46,13 +47,12 @@ import { setVisibleInterval } from "@/lib/polling";
 import { useStoredSortPreference } from "@/lib/sort-preference";
 import type { TrafficDetail, TrafficExchange, TrafficHost, TrafficResp } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { intlLocale, t } from "@/i18n";
 
 import { ReplayPanel } from "./_components/replay-panel";
 import { StreamMessagesPanel } from "./_components/stream-messages";
 
 function fmtTime(ts: string) {
-  return new Date(ts).toLocaleString(intlLocale, {
+  return new Date(ts).toLocaleString("ko-KR", {
     month: "2-digit",
     day: "2-digit",
     hour: "2-digit",
@@ -117,6 +117,7 @@ const SORT_STORAGE_KEY = "traffic-sort";
 const STATUS_BUCKETS = ["2xx", "3xx", "4xx", "5xx"];
 
 export default function TrafficPage() {
+  const t = useTranslations("traffic");
   const [selectedFlows, setSelectedFlows] = React.useState<Set<string>>(() => new Set());
   const [linking, setLinking] = React.useState(false);
   const [page, setPage] = React.useState(0);
@@ -259,12 +260,12 @@ export default function TrafficPage() {
 
   // "Purge" for the unfiltered purge, "Delete" for the host-scoped ones — the dialog's
   // title and its confirm button both follow from which is in play.
-  const purging = deleteMode === "all";
+  const deleteVerb = deleteMode === "all" ? t("page.delete.verb.purge") : t("page.delete.verb.delete");
   const deleteTitle = deleteMode
     ? {
-        all: t("Purge all traffic records?"),
-        selected: t("Delete all traffic for the {count} selected targets?", { count: selectedHosts.length }),
-        filter: t("Delete all traffic for this target?"),
+        all: t("page.delete.title.all"),
+        selected: t("page.delete.title.selected", { count: selectedHosts.length }),
+        filter: t("page.delete.title.filter"),
       }[deleteMode]
     : "";
 
@@ -292,21 +293,15 @@ export default function TrafficPage() {
         if (mode === "all") {
           // Reclaimed space is the whole point of compacting an emptied index, so say so.
           const reclaimed = r.reclaimed ?? 0;
-          toast.success(
-            reclaimed > 0
-              ? t("Purged {count} traffic records, freeing {size} of storage", {
-                  count: r.deleted,
-                  size: fmtBytes(reclaimed),
-                })
-              : t("Purged {count} traffic records", { count: r.deleted }),
-          );
+          const freed = reclaimed > 0 ? t("page.delete.toast.freed", { size: fmtBytes(reclaimed) }) : "";
+          toast.success(t("page.delete.toast.purged", { count: r.deleted, freed }));
         }
         setPage(0);
         setReloadTick((t) => t + 1);
       })
       .catch((e) => {
         // Keep the confirmation open so the user can retry a failed deletion.
-        if (mode === "all") toast.error(t("Purge failed: {error}", { error: (e as Error).message }));
+        if (mode === "all") toast.error(t("page.delete.toast.purgeFailed", { message: (e as Error).message }));
       })
       .finally(() => setDeleting(false));
   };
@@ -330,7 +325,7 @@ export default function TrafficPage() {
         if (d.stream_kind === "websocket" || d.stream_kind === "sse") setDetailTab("stream");
       })
       .catch(() => {
-        if (alive) setDetail({ req: t("(failed to load the messages)"), resp: "" });
+        if (alive) setDetail({ req: t("page.detail.loadFailed"), resp: "" });
       })
       .finally(() => {
         if (alive) setDetailLoading(false);
@@ -338,7 +333,7 @@ export default function TrafficPage() {
     return () => {
       alive = false;
     };
-  }, [selected]);
+  }, [selected, t]);
 
   // Toggle direction when re-clicking the active column, else sort the new column
   // newest/largest-first.
@@ -359,8 +354,8 @@ export default function TrafficPage() {
     <div className="flex min-h-0 flex-1 flex-col gap-4">
       <div className="flex items-center justify-between gap-4">
         <div>
-          <h1 className="text-xl font-semibold tracking-tight">{t("Traffic")}</h1>
-          <p className="text-muted-foreground text-sm">{t("Global recording proxy · all HTTP traffic")}</p>
+          <h1 className="text-xl font-semibold tracking-tight">{t("page.title")}</h1>
+          <p className="text-muted-foreground text-sm">{t("page.subtitle")}</p>
         </div>
         <div className="flex items-center gap-4 text-sm">
           <span
@@ -372,11 +367,14 @@ export default function TrafficPage() {
             )}
           >
             <RadioTowerIcon className="size-3.5" />
-            {traffic?.enabled ? t("Recording") : t("Disabled")}
+            {traffic?.enabled ? t("page.status.recording") : t("page.status.disabled")}
           </span>
           {traffic?.proxy && <span className="font-mono text-xs text-muted-foreground">{traffic.proxy}</span>}
-          <span className="text-xs text-muted-foreground tabular-nums">
-            {t("{count} records", { count: traffic?.count ?? 0 })}
+          <span className="text-xs text-muted-foreground">
+            {t.rich("page.records", {
+              count: traffic?.count ?? 0,
+              num: (chunks) => <span className="tabular-nums">{chunks}</span>,
+            })}
           </span>
         </div>
       </div>
@@ -388,8 +386,8 @@ export default function TrafficPage() {
             <Button variant="outline" size="sm" className="h-8">
               <ListChecksIcon className="size-3.5" />
               {selectedHosts.length > 0
-                ? t("Select targets ({count})", { count: selectedHosts.length })
-                : t("Select targets…")}
+                ? t("page.toolbar.selectTargetsCount", { count: selectedHosts.length })
+                : t("page.toolbar.selectTargets")}
             </Button>
           </PopoverTrigger>
           <PopoverContent
@@ -398,7 +396,7 @@ export default function TrafficPage() {
             collisionPadding={16}
           >
             <div className="flex items-center justify-between border-b px-3 py-2">
-              <span className="text-xs font-medium text-muted-foreground">{t("Batch delete by target")}</span>
+              <span className="text-xs font-medium text-muted-foreground">{t("page.picker.title")}</span>
               <div className="flex items-center gap-1">
                 {hosts.length > 0 && (
                   <Tooltip>
@@ -409,17 +407,18 @@ export default function TrafficPage() {
                         onClick={() => setHostCountSortDirection((current) => (current === "desc" ? "asc" : "desc"))}
                         aria-label={
                           hostCountSortDirection === "desc"
-                            ? t("Packet count is currently descending; click to switch to ascending")
-                            : t("Packet count is currently ascending; click to switch to descending")
+                            ? t("page.picker.sortDescToAsc")
+                            : t("page.picker.sortAscToDesc")
                         }
                       >
                         {hostCountSortDirection === "desc" ? <ArrowDownWideNarrowIcon /> : <ArrowUpNarrowWideIcon />}
                       </Button>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {hostCountSortDirection === "desc"
-                        ? t("By packet count, descending")
-                        : t("By packet count, ascending")}
+                      {t("page.picker.sortTooltip", {
+                        direction:
+                          hostCountSortDirection === "desc" ? t("page.picker.descending") : t("page.picker.ascending"),
+                      })}
                     </TooltipContent>
                   </Tooltip>
                 )}
@@ -430,14 +429,14 @@ export default function TrafficPage() {
                     className="h-6 px-2 text-xs"
                     onClick={() => setSelectedHosts(allSelected ? [] : hosts.map((h) => h.host))}
                   >
-                    {allSelected ? t("Clear all") : t("Select all")}
+                    {allSelected ? t("page.picker.clearAll") : t("page.picker.selectAll")}
                   </Button>
                 )}
               </div>
             </div>
             <div className="max-h-64 overflow-y-auto">
               {hosts.length === 0 ? (
-                <div className="px-3 py-6 text-center text-xs text-muted-foreground">{t("No traffic records")}</div>
+                <div className="px-3 py-6 text-center text-xs text-muted-foreground">{t("page.picker.empty")}</div>
               ) : (
                 sortedHosts.map((h, index) => (
                   <label
@@ -471,24 +470,29 @@ export default function TrafficPage() {
                   setPickerOpen(false);
                 }}
               >
-                {t("Delete selected ({count})", { count: selectedHosts.length })}
+                {t("page.picker.deleteSelected", { count: selectedHosts.length })}
               </Button>
             </div>
           </PopoverContent>
         </Popover>
         <div className="relative w-48">
-          <Input placeholder="host…" value={host} onChange={(e) => setHost(e.target.value)} className="h-8" />
+          <Input
+            placeholder={t("page.toolbar.hostPlaceholder")}
+            value={host}
+            onChange={(e) => setHost(e.target.value)}
+            className="h-8"
+          />
         </div>
         <Button
           variant="destructive"
           size="sm"
           className="h-8"
           disabled={!hostQ || deleting}
-          title={hostQ ? undefined : t("Select a target on the left or enter a host first")}
+          title={hostQ ? undefined : t("page.toolbar.deleteHostDisabledHint")}
           onClick={() => setDeleteMode("filter")}
         >
           <Trash2Icon className="size-3.5" />
-          {t("Delete this target")}
+          {t("page.toolbar.deleteThisTarget")}
         </Button>
         {/* Outline rather than a second destructive button: this one ignores every
             filter, so it must not look one mis-click away from "Delete this target". */}
@@ -497,16 +501,16 @@ export default function TrafficPage() {
           size="sm"
           className="h-8 text-destructive hover:bg-destructive/10 hover:text-destructive"
           disabled={!traffic?.count || deleting}
-          title={traffic?.count ? t("Delete all traffic and compact storage") : t("No traffic records yet")}
+          title={traffic?.count ? t("page.toolbar.purgeAllHint") : t("page.toolbar.purgeAllHintEmpty")}
           onClick={() => setDeleteMode("all")}
         >
           <EraserIcon className="size-3.5" />
-          {t("Purge all")}
+          {t("page.toolbar.purgeAll")}
         </Button>
         <div className="relative max-w-sm flex-1">
           <SearchIcon className="absolute top-1/2 left-2.5 size-4 -translate-y-1/2 text-muted-foreground" />
           <Input
-            placeholder={t("Search everything (URL / method / type / status…)")}
+            placeholder={t("page.toolbar.searchPlaceholder")}
             value={query}
             onChange={(e) => setQuery(e.target.value)}
             className="h-8 pl-8"
@@ -514,10 +518,10 @@ export default function TrafficPage() {
         </div>
         <Select value={method} onValueChange={setMethod}>
           <SelectTrigger size="sm" className="w-32">
-            <SelectValue placeholder={t("Method")} />
+            <SelectValue placeholder="Method" />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t("All methods")}</SelectItem>
+            <SelectItem value="all">{t("page.toolbar.allMethods")}</SelectItem>
             {METHODS.map((m) => (
               <SelectItem key={m} value={m}>
                 {m}
@@ -532,7 +536,7 @@ export default function TrafficPage() {
           <SelectContent>
             {PAGE_SIZES.map((n) => (
               <SelectItem key={n} value={String(n)}>
-                {t("{count} / page", { count: n })}
+                {t("page.toolbar.perPage", { n })}
               </SelectItem>
             ))}
           </SelectContent>
@@ -568,10 +572,10 @@ export default function TrafficPage() {
 
       {/* Advanced filters (issue #177): narrow 660k+ exchanges down to the one packet. */}
       <div className="flex flex-wrap items-center gap-2 rounded-md border bg-muted/30 px-2 py-1.5">
-        <span className="pl-1 text-xs font-medium text-muted-foreground">{t("Advanced filters")}</span>
+        <span className="pl-1 text-xs font-medium text-muted-foreground">{t("page.filters.title")}</span>
         <div className="relative w-56">
           <Input
-            placeholder={t("Response content (body keyword, ≥3 chars)")}
+            placeholder={t("page.filters.bodyPlaceholder")}
             value={body}
             onChange={(e) => setBody(e.target.value)}
             className="h-8"
@@ -579,7 +583,7 @@ export default function TrafficPage() {
         </div>
         <div className="relative w-52">
           <Input
-            placeholder={t("Path (e.g. /api/user/…)")}
+            placeholder={t("page.filters.pathPlaceholder")}
             value={path}
             onChange={(e) => setPath(e.target.value)}
             className="h-8"
@@ -587,10 +591,10 @@ export default function TrafficPage() {
         </div>
         <Select value={statusFilter} onValueChange={setStatusFilter}>
           <SelectTrigger size="sm" className="w-28">
-            <SelectValue placeholder={t("Status")} />
+            <SelectValue placeholder={t("page.filters.statusPlaceholder")} />
           </SelectTrigger>
           <SelectContent>
-            <SelectItem value="all">{t("All statuses")}</SelectItem>
+            <SelectItem value="all">{t("page.filters.allStatuses")}</SelectItem>
             {STATUS_BUCKETS.map((s) => (
               <SelectItem key={s} value={s}>
                 {s}
@@ -599,11 +603,11 @@ export default function TrafficPage() {
           </SelectContent>
         </Select>
         <div className="flex items-center gap-1 text-xs text-muted-foreground">
-          <span>{t("Response size")}</span>
+          <span>{t("page.filters.responseSize")}</span>
           <Input
             type="number"
             min={0}
-            placeholder={t("Min (B)")}
+            placeholder={t("page.filters.minPlaceholder")}
             value={respMin}
             onChange={(e) => setRespMin(e.target.value)}
             className="h-8 w-24"
@@ -612,7 +616,7 @@ export default function TrafficPage() {
           <Input
             type="number"
             min={0}
-            placeholder={t("Max (B)")}
+            placeholder={t("page.filters.maxPlaceholder")}
             value={respMax}
             onChange={(e) => setRespMax(e.target.value)}
             className="h-8 w-24"
@@ -621,21 +625,21 @@ export default function TrafficPage() {
         {hasAdvancedFilter ? (
           <Button variant="ghost" size="sm" className="h-8" onClick={resetAdvancedFilters}>
             <FilterXIcon className="size-3.5" />
-            {t("Clear filters")}
+            {t("page.filters.clear")}
           </Button>
         ) : null}
       </div>
 
       <div className="flex flex-wrap items-center gap-2">
         <span className="text-sm text-muted-foreground">
-          {t("{count} flows selected", { count: selectedFlows.size })}
+          {t("page.selection.flowsSelected", { count: selectedFlows.size })}
         </span>
         <Button variant="outline" size="sm" disabled={selectedFlows.size === 0} onClick={() => setLinking(true)}>
-          {t("Link to finding")}
+          {t("page.selection.linkToFinding")}
         </Button>
         {selectedFlows.size > 0 ? (
           <Button variant="ghost" size="sm" onClick={() => setSelectedFlows(new Set())}>
-            {t("Clear selection")}
+            {t("page.selection.clearSelection")}
           </Button>
         ) : null}
       </div>
@@ -648,7 +652,7 @@ export default function TrafficPage() {
                 <TableRow>
                   <TableHead className="w-10">
                     <Checkbox
-                      aria-label={t("Select this page's traffic")}
+                      aria-label={t("page.table.selectPage")}
                       checked={exchanges.length > 0 && exchanges.every((e) => selectedFlows.has(e.id))}
                       onCheckedChange={(checked) =>
                         setSelectedFlows((previous) => {
@@ -664,18 +668,18 @@ export default function TrafficPage() {
                   </TableHead>
                   <SortableHead
                     field="ts"
-                    label={t("Time")}
+                    label={t("page.table.columns.time")}
                     activeField={sort.field}
                     direction={sort.direction}
                     onSort={toggleSort}
                     className="w-36"
                   />
-                  <TableHead className="w-44">host</TableHead>
-                  <TableHead className="w-20">{t("Method")}</TableHead>
+                  <TableHead className="w-44">{t("page.table.columns.host")}</TableHead>
+                  <TableHead className="w-20">{t("page.table.columns.method")}</TableHead>
                   <TableHead>URL</TableHead>
                   <SortableHead
                     field="status"
-                    label={t("Status")}
+                    label={t("page.table.columns.status")}
                     activeField={sort.field}
                     direction={sort.direction}
                     onSort={toggleSort}
@@ -684,7 +688,7 @@ export default function TrafficPage() {
                   <TableHead className="w-36">content-type</TableHead>
                   <SortableHead
                     field="resp_len"
-                    label={t("Response size")}
+                    label={t("page.table.columns.responseSize")}
                     activeField={sort.field}
                     direction={sort.direction}
                     onSort={toggleSort}
@@ -702,7 +706,7 @@ export default function TrafficPage() {
                   >
                     <TableCell>
                       <Checkbox
-                        aria-label={t("Select traffic {id}", { id: e.id })}
+                        aria-label={t("page.table.selectRow", { id: e.id })}
                         checked={selectedFlows.has(e.id)}
                         onClick={(event) => event.stopPropagation()}
                         onCheckedChange={(checked) =>
@@ -735,7 +739,7 @@ export default function TrafficPage() {
                 {exchanges.length === 0 && (
                   <TableRow>
                     <TableCell colSpan={8} className="py-12 text-center text-sm text-muted-foreground">
-                      {traffic === null ? t("Loading…") : t("No matching traffic.")}
+                      {traffic === null ? t("page.table.loading") : t("page.table.noMatch")}
                     </TableCell>
                   </TableRow>
                 )}
@@ -769,31 +773,31 @@ export default function TrafficPage() {
               </SheetHeader>
               <Tabs value={detailTab} onValueChange={setDetailTab} className="min-h-0 flex-1 gap-0">
                 <TabsList className={cn("mx-5 mt-4 grid w-auto", hasStream ? "grid-cols-4" : "grid-cols-3")}>
-                  <TabsTrigger value="request">{t("Request")}</TabsTrigger>
-                  <TabsTrigger value="response">{t("Response")}</TabsTrigger>
+                  <TabsTrigger value="request">{t("page.detail.tabs.request")}</TabsTrigger>
+                  <TabsTrigger value="response">{t("page.detail.tabs.response")}</TabsTrigger>
                   {hasStream && (
                     <TabsTrigger value="stream">
-                      {t("Stream")}
+                      {t("page.detail.tabs.stream")}
                       {(detail?.stream_count ?? 0) > 0 && (
                         <span className="text-muted-foreground text-xs tabular-nums">{detail?.stream_count}</span>
                       )}
                     </TabsTrigger>
                   )}
                   {hasStream ? (
-                    <span title={t("stream replay is not supported")} className="flex">
+                    <span title={t("page.detail.replayUnsupported")} className="flex">
                       <TabsTrigger value="replay" disabled>
-                        {t("Replay")}
+                        {t("page.detail.tabs.replay")}
                       </TabsTrigger>
                     </span>
                   ) : (
-                    <TabsTrigger value="replay">{t("Replay")}</TabsTrigger>
+                    <TabsTrigger value="replay">{t("page.detail.tabs.replay")}</TabsTrigger>
                   )}
                 </TabsList>
                 <TabsContent value="request" className="min-h-0 overflow-auto">
                   {detailLoading ? (
                     <div className="flex items-center gap-2 p-5 text-xs text-muted-foreground">
                       <Loader2Icon className="size-3.5 animate-spin" />
-                      {t("Loading messages…")}
+                      {t("page.detail.loadingMessages")}
                     </div>
                   ) : (
                     <HttpCodeBlock raw={requestWithHost(detail?.req ?? "", selected)} />
@@ -803,7 +807,7 @@ export default function TrafficPage() {
                   {detailLoading ? (
                     <div className="flex items-center gap-2 p-5 text-xs text-muted-foreground">
                       <Loader2Icon className="size-3.5 animate-spin" />
-                      {t("Loading messages…")}
+                      {t("page.detail.loadingMessages")}
                     </div>
                   ) : (
                     <HttpCodeBlock raw={detail?.resp ?? ""} />
@@ -820,7 +824,7 @@ export default function TrafficPage() {
                     {detailLoading || !detail ? (
                       <div className="flex items-center gap-2 p-5 text-muted-foreground text-xs">
                         <Loader2Icon className="size-3.5 animate-spin" />
-                        {t("Loading…")}
+                        {t("page.detail.loading")}
                       </div>
                     ) : (
                       <ReplayPanel
@@ -848,43 +852,29 @@ export default function TrafficPage() {
           <AlertDialogHeader>
             <AlertDialogTitle>{deleteTitle}</AlertDialogTitle>
             <AlertDialogDescription>
-              {deleteMode === "all" && (
-                <>
-                  {t(
-                    "This will permanently delete all {count} traffic records (including raw requests/responses), ignoring the current filters. This action cannot be undone. Traffic evidence already bound to findings lives in a separate evidence store and is unaffected.",
-                    { count: traffic?.count ?? 0 },
-                  )}
-                  <br />
-                  <span className="text-muted-foreground">
-                    {t(
-                      "Purging also compacts storage, returning the index's disk space to the system; traffic recording pauses briefly during this time.",
-                    )}
-                  </span>
-                </>
-              )}
-              {deleteMode === "selected" && (
-                <>
-                  {t(
-                    "This will permanently delete all traffic records for {count} targets ({hosts}), including raw requests/responses. This action cannot be undone.",
-                    {
-                      count: selectedHosts.length,
-                      hosts: `${selectedHosts.slice(0, 3).join(", ")}${selectedHosts.length > 3 ? "…" : ""}`,
-                    },
-                  )}
-                </>
-              )}
-              {deleteMode === "filter" && (
-                <>
-                  {t(
-                    "This will permanently delete all traffic records for hosts containing {host} (including raw requests/responses). This action cannot be undone.",
-                    { host: hostQ },
-                  )}
-                </>
-              )}
+              {deleteMode === "all" &&
+                t.rich("page.delete.desc.all", {
+                  count: traffic?.count ?? 0,
+                  num: (chunks) => <span className="font-semibold tabular-nums">{chunks}</span>,
+                  br: () => <br />,
+                  muted: (chunks) => <span className="text-muted-foreground">{chunks}</span>,
+                })}
+              {deleteMode === "selected" &&
+                t.rich("page.delete.desc.selected", {
+                  count: selectedHosts.length,
+                  hosts: selectedHosts.slice(0, 3).join(", ") + (selectedHosts.length > 3 ? "…" : ""),
+                  num: (chunks) => <span className="font-semibold tabular-nums">{chunks}</span>,
+                  mono: (chunks) => <span className="font-mono">{chunks}</span>,
+                })}
+              {deleteMode === "filter" &&
+                t.rich("page.delete.desc.filter", {
+                  host: hostQ,
+                  mono: (chunks) => <span className="font-mono font-semibold">{chunks}</span>,
+                })}
             </AlertDialogDescription>
           </AlertDialogHeader>
           <AlertDialogFooter>
-            <AlertDialogCancel disabled={deleting}>{t("Cancel")}</AlertDialogCancel>
+            <AlertDialogCancel disabled={deleting}>{t("page.delete.cancel")}</AlertDialogCancel>
             <AlertDialogAction
               onClick={(e) => {
                 e.preventDefault();
@@ -894,12 +884,8 @@ export default function TrafficPage() {
               className="bg-destructive text-destructive-foreground hover:bg-destructive/90"
             >
               {deleting
-                ? purging
-                  ? t("Purging…")
-                  : t("Deleting…")
-                : purging
-                  ? t("Confirm purge")
-                  : t("Confirm delete")}
+                ? t("page.delete.button.inProgress", { verb: deleteVerb })
+                : t("page.delete.button.confirm", { verb: deleteVerb })}
             </AlertDialogAction>
           </AlertDialogFooter>
         </AlertDialogContent>

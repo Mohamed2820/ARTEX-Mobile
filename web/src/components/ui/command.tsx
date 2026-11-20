@@ -4,7 +4,6 @@ import * as React from "react"
 import { Command as CommandPrimitive } from "cmdk"
 
 import { cn } from "@/lib/utils"
-import { t } from "@/i18n"
 import {
   Dialog,
   DialogContent,
@@ -35,8 +34,8 @@ function Command({
 }
 
 function CommandDialog({
-  title = t("Command Palette"),
-  description = t("Search for a command to run..."),
+  title = "Command Palette",
+  description = "Search for a command to run...",
   children,
   className,
   showCloseButton = false,

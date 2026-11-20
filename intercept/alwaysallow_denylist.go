@@ -27,8 +27,6 @@ var alwaysAllowDenylist = func() map[string]bool {
 		// package managers and build tools: run package scripts and hooks
 		"npm npx pnpm yarn bunx corepack pip pipx uv uvx poetry conda composer gem bundle bundler rake cargo go " +
 			"mvn gradle dotnet apt apt-get dpkg dnf yum rpm pacman apk brew snap flatpak",
-		// version control and build generators: run hooks, aliases and script files
-		"git cmake ctest cpack",
 		// orchestration: run images, playbooks and plans
 		"docker docker-compose podman nerdctl kubectl helm ansible ansible-playbook terraform pulumi vagrant",
 		// destructive

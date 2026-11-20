@@ -25,6 +25,7 @@ import {
   XIcon,
   ZapOffIcon,
 } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { ApprovalExecutionFocus, useApprovalFocus, useApprovalHistory } from "@/components/approval-execution-focus";
@@ -52,7 +53,9 @@ import { Tooltip, TooltipContent, TooltipProvider, TooltipTrigger } from "@/comp
 import { useSideQuestions } from "@/hooks/use-side-questions";
 import { api, sseUrl } from "@/lib/api";
 import { shouldSubmitOnKey, useChatSendMode } from "@/lib/chat-send-mode";
+import { llmTransitionToast } from "@/lib/llm-transition";
 import { MOCK } from "@/lib/mock/enabled";
+import { setVisibleInterval } from "@/lib/polling";
 import { isBtwCommand } from "@/lib/side-questions";
 import { taskAssetSourceLabel, taskAssetTypeLabel } from "@/lib/task-assets";
 import type {
@@ -69,14 +72,12 @@ import type {
   TokenTotal,
 } from "@/lib/types";
 import { cn } from "@/lib/utils";
-import { setVisibleInterval } from "@/lib/polling";
-import { intlLocale, t } from "@/i18n";
 
 // resolutionLabel names the LLM a session runs on. The badge shows this alone and
 // keeps the model id in its tooltip. Env-backed configs can arrive without a name,
 // so fall back to the model id rather than rendering an empty badge.
-function resolutionLabel(r: TaskLLMResolution): string {
-  return r.name || r.model || t("Unnamed config");
+function resolutionLabel(t: ReturnType<typeof useTranslations<"tasksSessions">>, r: TaskLLMResolution): string {
+  return r.name || r.model || t("resolution.unnamedConfig");
 }
 
 // fmtBytes renders a human file size for attachment chips (mirrors transcript.tsx).
@@ -107,15 +108,6 @@ function newWorkerMessageRequestID(): string {
   return (
     globalThis.crypto?.randomUUID?.() ??
     `worker-message-${Date.now().toString(36)}-${Math.random().toString(36).slice(2, 12)}`
-  );
-}
-
-// boldMarkup renders a translated sentence whose **marked** spans are bold, so the
-// emphasis can move with Turkish word order instead of splitting the sentence.
-function boldMarkup(text: string): React.ReactNode {
-  return text.split(/\*\*(.+?)\*\*/g).map((part, index) =>
-    // biome-ignore lint/suspicious/noArrayIndexKey: static split of a fixed string
-    index % 2 === 1 ? <strong key={index}>{part}</strong> : <React.Fragment key={index}>{part}</React.Fragment>,
   );
 }
 
@@ -213,7 +205,11 @@ const TokenMetrics = React.forwardRef<
     labels?: "short" | "long";
   }
 >(({ input, cache, output, labels = "short", className, ...props }, ref) => {
-  const names = labels === "short" ? [t("In"), t("Cache"), t("Out")] : [t("input"), t("cache"), t("output")];
+  const t = useTranslations("tasksSessions");
+  const names =
+    labels === "short"
+      ? [t("tokenMetrics.in"), t("tokenMetrics.cache"), t("tokenMetrics.out")]
+      : [t("tokenMetrics.inputLong"), t("tokenMetrics.cacheLong"), t("tokenMetrics.outputLong")];
   const values = [input, cache, output];
   return (
     <span
@@ -245,10 +241,10 @@ function fmtDuration(ms: number): string {
 }
 
 const roleMeta = {
-  mainagent: { label: t("Main Agent"), icon: UserIcon },
-  planner: { label: t("Planner"), icon: BrainIcon },
-  worker: { label: t("Workers"), icon: RadioIcon },
-  system: { label: t("System audit"), icon: HistoryIcon },
+  mainagent: { label: "Main Agent", icon: UserIcon },
+  planner: { label: "Planner", icon: BrainIcon },
+  worker: { label: "Workers", icon: RadioIcon },
+  system: { label: "System audit", icon: HistoryIcon },
 } as const;
 
 // The main-agent session is the interactive entry point of this tab and has no
@@ -260,7 +256,7 @@ const roleMeta = {
 // segment is a switchable UI session; only the current (highest) one is writable.
 const mainSessionId = (seg: number) => `s-main-${seg}`;
 const mainSessionKey = (seg: number) => `main:${seg}`;
-const mainSessionTitle = (seg: number) => t("Main Agent · Session #{n}", { n: seg + 1 });
+const mainSessionTitle = (seg: number) => `Main Agent · Session #${seg + 1}`;
 const MAIN_ID = mainSessionId(0);
 const MAIN_SESSION: Session = {
   id: MAIN_ID,
@@ -280,7 +276,7 @@ const PLANNER_ID = "s-planner";
 const PLANNER_SESSION: Session = {
   id: PLANNER_ID,
   role: "planner",
-  title: t("Planner · situational analysis"),
+  title: "Planner · situational analysis",
   status: "running",
   live: true,
   last_activity: "",
@@ -293,7 +289,7 @@ const SYSTEM_ID = "s-system";
 const SYSTEM_SESSION: Session = {
   id: SYSTEM_ID,
   role: "system",
-  title: t("System events · LLM failover"),
+  title: "System events · LLM failover",
   status: "done",
   live: false,
   last_activity: "",
@@ -337,7 +333,7 @@ function intentToSession(n: TaskNode): Session {
   return {
     id: n.id,
     role: "worker",
-    title: label || t("Intent {id}", { id: n.id }),
+    title: label, // blank when no payload → localized "Intent {id}" at render
     status: state,
     live: !n.inherited && state === "running",
     last_activity: n.ts,
@@ -345,6 +341,17 @@ function intentToSession(n: TaskNode): Session {
     source_task_id: n.source_task_id,
     inherited: n.inherited,
   };
+}
+
+// sessionDisplayTitle resolves a session's localized DISPLAY title. The fixed
+// sessions (main/planner/system) derive their title from role — the English
+// constant titles above stay as data/fallback. Worker titles are real intent-label
+// data (s.title); only the label-less fallback is localized.
+function sessionDisplayTitle(t: ReturnType<typeof useTranslations<"tasksSessions">>, s: Session): string {
+  if (s.role === "mainagent") return t("sessionTitle.main", { n: (s.seg ?? 0) + 1 });
+  if (s.role === "planner") return t("sessionTitle.planner");
+  if (s.role === "system") return t("sessionTitle.system");
+  return s.title || t("sessionTitle.intentFallback", { id: s.intent_id ?? "" });
 }
 
 function SessionItem({
@@ -368,6 +375,7 @@ function SessionItem({
   controlling?: boolean;
   deleted?: boolean;
 }) {
+  const t = useTranslations("tasksSessions");
   const icon = deleted ? (
     <Trash2Icon className="size-3.5 text-destructive" />
   ) : s.role === "worker" ? (
@@ -402,7 +410,7 @@ function SessionItem({
         )}
         {s.inherited && s.source_task_id && (
           <Badge variant="outline" className="shrink-0">
-            {t("Source #{id}", { id: s.source_task_id })}
+            {t("sessionItem.sourceBadge", { id: s.source_task_id })}
           </Badge>
         )}
         <span
@@ -412,7 +420,7 @@ function SessionItem({
         </span>
         {deleted && (
           <Badge variant="outline" className="shrink-0 border-destructive/40 text-destructive">
-            {t("Deleted")}
+            {t("sessionItem.deleted")}
           </Badge>
         )}
         {hasPending && <ShieldAlertIcon className="size-3.5 shrink-0 text-amber-500" />}
@@ -424,7 +432,7 @@ function SessionItem({
         {s.live && (
           <span className="inline-flex items-center gap-1 rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
             <span className="size-1 animate-pulse rounded-full bg-blue-500" />
-            {t("Live")}
+            {t("sessionItem.live")}
           </span>
         )}
       </button>
@@ -436,8 +444,8 @@ function SessionItem({
             size="icon-xs"
             onClick={onCancel}
             disabled={controlling}
-            title={t("Delete this intent (reason required; soft or hard delete)")}
-            aria-label={t("Delete this intent (reason required; soft or hard delete)")}
+            title={t("sessionItem.deleteIntent")}
+            aria-label={t("sessionItem.deleteIntent")}
             className="text-destructive hover:text-destructive"
           >
             <Trash2Icon />
@@ -455,6 +463,8 @@ function truncateWorkerAssetLabel(value: string, maxChars = 30): string {
 }
 
 function WorkerAssetBadge({ assets }: { assets: IntentAsset[] }) {
+  const t = useTranslations("tasksSessions");
+  const tAssets = useTranslations("taskAssets");
   const displayAssets = assets.filter(
     (asset) => asset.type === "root_domain" || asset.type === "subdomain" || asset.type === "ip",
   );
@@ -467,7 +477,7 @@ function WorkerAssetBadge({ assets }: { assets: IntentAsset[] }) {
     <Tooltip>
       <TooltipTrigger asChild>
         <Badge variant="outline" className="max-w-60 shrink-0 font-normal" title={firstRawLabel}>
-          <span className="truncate">{t("Current assets: {label}", { label: firstLabel })}</span>
+          <span className="truncate">{t("workerAsset.current", { label: firstLabel })}</span>
           {displayAssets.length > 1 && <span className="shrink-0 tabular-nums">+{displayAssets.length - 1}</span>}
         </Badge>
       </TooltipTrigger>
@@ -477,8 +487,8 @@ function WorkerAssetBadge({ assets }: { assets: IntentAsset[] }) {
             <div key={`${asset.intent_id}-${asset.asset_id}`} className="min-w-0">
               <div className="break-all font-mono text-xs">{asset.label.trim() || `#${asset.asset_id}`}</div>
               <div className="mt-0.5 text-xs text-muted-foreground">
-                {taskAssetTypeLabel(asset.type)} · {taskAssetSourceLabel(asset.source)}
-                {asset.inherited ? ` · ${t("from source task #{id}", { id: asset.source_task_id ?? "" })}` : ""}
+                {taskAssetTypeLabel(asset.type, tAssets)} · {taskAssetSourceLabel(asset.source, tAssets)}
+                {asset.inherited ? t("workerAsset.fromSourceTask", { id: asset.source_task_id }) : ""}
               </div>
               <div className="mt-0.5 [overflow-wrap:anywhere] text-xs">{asset.source_summary}</div>
             </div>
@@ -490,6 +500,8 @@ function WorkerAssetBadge({ assets }: { assets: IntentAsset[] }) {
 }
 
 export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; taskPaused?: boolean }) {
+  const t = useTranslations("tasksSessions");
+  const tLlm = useTranslations("llm");
   const approvalFocus = useApprovalFocus({ taskId });
   const [selectedSessionId, setActiveId] = React.useState(MAIN_ID);
   const focusSession = React.useMemo<Session | undefined>(() => {
@@ -506,7 +518,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         id,
         role: "worker",
         intent_id: id,
-        title: t("Worker #{id}", { id }),
+        title: `Worker #${id}`,
         status: "done",
         live: false,
         last_activity: source.items[0]?.ts ?? "",
@@ -564,7 +576,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
       const r = await api.chatUpload("task", taskId, Array.from(files));
       setAttachments((prev) => [...prev, ...r.attachments]);
     } catch (e) {
-      toast.error(t("Upload failed: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.uploadFailed", { message: (e as Error).message }));
     } finally {
       setUploading(false);
       if (fileInputRef.current) fileInputRef.current.value = "";
@@ -587,7 +599,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
       setListOpen(false);
       setInput("");
     } catch (e) {
-      toast.error(t("Failed to create session: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.createSessionFailed", { message: (e as Error).message }));
     } finally {
       setCreatingMain(false);
       setConfirmNewMain(false);
@@ -607,7 +619,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
     async (session: Session, action: "pause" | "resume" | "cancel", reason?: string, mode?: "soft" | "hard") => {
       if (!session.intent_id || session.inherited || controllingIntent) return;
       if (action === "cancel" && !reason?.trim()) {
-        toast.error(t("Please provide a deletion reason"));
+        toast.error(t("toasts.provideReason"));
         return;
       }
       setControllingIntent(session.intent_id);
@@ -615,37 +627,31 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         const res = await api.controlIntent(taskId, session.intent_id, action, reason, mode);
         if (action === "pause") {
           patchIntentState(session.intent_id, "paused");
-          toast.success(t("Worker #{id} paused", { id: session.intent_id }));
+          toast.success(t("toasts.workerPaused", { id: session.intent_id }));
         } else if (action === "resume") {
           patchIntentState(session.intent_id, "open");
-          toast.success(t("Worker #{id} resumed, waiting to be re-claimed", { id: session.intent_id }));
+          toast.success(t("toasts.workerResumed", { id: session.intent_id }));
         } else if (mode === "hard") {
           // Hard delete: the intent and its exclusive downstream are physically removed; drop the row from the list.
           patchIntentState(session.intent_id);
           const d = res.deleted;
-          toast.success(
-            d
-              ? t(
-                  "Worker #{id} and its exclusive downstream were permanently deleted (including {intents} intents / {facts} facts / {findings} findings)",
-                  { id: session.intent_id, intents: d.intents, facts: d.facts, findings: d.findings },
-                )
-              : t("Worker #{id} and its exclusive downstream were permanently deleted", { id: session.intent_id }),
-          );
+          const extra = d ? t("toasts.deletedExtra", { intents: d.intents, facts: d.facts, findings: d.findings }) : "";
+          toast.success(t("toasts.workerHardDeleted", { id: session.intent_id, extra }));
           setCancelReason("");
         } else {
           // Soft delete: the intent is set to deleted with the reason recorded; nodes and output are kept.
           patchIntentState(session.intent_id, "deleted");
-          toast.success(t("Worker #{id} deleted (reason recorded; the planner will re-plan accordingly)", { id: session.intent_id }));
+          toast.success(t("toasts.workerSoftDeleted", { id: session.intent_id }));
           setCancelReason("");
         }
       } catch (error) {
-        toast.error(t("Worker operation failed: {error}", { error: (error as Error).message }));
+        toast.error(t("toasts.workerControlFailed", { message: (error as Error).message }));
       } finally {
         setControllingIntent(null);
         setCancelIntent(null);
       }
     },
-    [controllingIntent, patchIntentState, taskId],
+    [controllingIntent, patchIntentState, taskId, t],
   );
 
   // SSE connection state — surfaced so a dropped realtime link is visible, never
@@ -727,7 +733,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
             patchStore(key, (s) => ({
               ...s,
               loading: false,
-              error: (error as Error).message || t("Failed to load"),
+              error: (error as Error).message || "Failed to load",
             }));
           })
           .finally(() => loadingKeysRef.current.delete(key));
@@ -755,7 +761,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         })
         .catch((e) => {
           if (reqTokenRef.current[key] !== token) return;
-          patchStore(key, (s) => ({ ...s, loading: false, error: (e as Error).message || t("Failed to load") }));
+          patchStore(key, (s) => ({ ...s, loading: false, error: (e as Error).message || "Failed to load" }));
         })
         .finally(() => loadingKeysRef.current.delete(key));
     },
@@ -1002,12 +1008,14 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
           if ((a.kind === "llm_switch" || a.kind === "llm_failover") && !llmToastSeqRef.current.has(a.seq)) {
             llmToastSeqRef.current.add(a.seq);
             const transition = a.metadata?.llm_transition;
+            const desc = transition ? llmTransitionToast(transition) : null;
+            const message = desc ? tLlm(desc.key, desc.values) : a.summary;
             if (transition?.mode === "exhausted" || a.is_error) {
-              toast.error(a.summary, { id: `task-${taskId}-llm-${a.seq}` });
+              toast.error(message, { id: `task-${taskId}-llm-${a.seq}` });
             } else if (transition?.mode === "automatic") {
-              toast.success(a.summary, { id: `task-${taskId}-llm-${a.seq}` });
+              toast.success(message, { id: `task-${taskId}-llm-${a.seq}` });
             } else {
-              toast.info(a.summary, { id: `task-${taskId}-llm-${a.seq}` });
+              toast.info(message, { id: `task-${taskId}-llm-${a.seq}` });
             }
             void api
               .taskLLMResolution(taskId)
@@ -1053,7 +1061,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
       .catch((err) => {
         if (!alive || reqTokenRef.current.mainboot !== token) return;
         if ((err as Error).message === "superseded") return;
-        patchStore(bootKey, (s) => ({ ...s, loading: false, error: (err as Error).message || t("Failed to load") }));
+        patchStore(bootKey, (s) => ({ ...s, loading: false, error: (err as Error).message || "Failed to load" }));
       })
       .finally(() => loadingKeysRef.current.delete(bootKey));
 
@@ -1171,7 +1179,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
   const sessionMeta = React.useMemo(() => {
     const map = new Map<string, { title: string; json: unknown; deleted: boolean; deleteReason: string }>();
     for (const node of allIntents) {
-      let title = t("Intent {id}", { id: node.id });
+      let title = `Intent ${node.id}`;
       let parsedPayload: unknown = node.payload;
       // Soft delete: the intent's state='deleted'; the deletion reason lives on the separate delete_reason field.
       const deleted = node.state === "deleted";
@@ -1299,7 +1307,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
   const mainBusy = isMain && (sending || (!activeSettled && (mainChatRunning ?? recentLive(activeKey))));
   // In the collapsed state (mobile) the title bar replaces the whole list: it shows the current session name + the total unread of other sessions,
   // otherwise once collapsed you neither know which session you are viewing nor see new messages elsewhere.
-  const activeDisplayTitle = (active.role === "worker" ? sessionMeta.get(active.id)?.title : "") || active.title;
+  const activeDisplayTitle =
+    (active.role === "worker" ? sessionMeta.get(active.id)?.title : "") || sessionDisplayTitle(t, active);
   const hiddenUnread = React.useMemo(
     () => Object.entries(store).reduce((sum, [key, s]) => (key === activeKey ? sum : sum + s.unread), 0),
     [store, activeKey],
@@ -1357,7 +1366,9 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
     if (isPlanner || isSystem) return items;
     // Worker session: the intent leads the transcript as a right-aligned "user"-style
     // message (the task handed to this worker), followed by its execution steps.
-    const intentTitle = sessionMeta.get(active.id)?.title ?? active.title;
+    const intentTitle =
+      sessionMeta.get(active.id)?.title ??
+      (active.title || t("sessionTitle.intentFallback", { id: active.intent_id ?? "" }));
     const intentMsg: Activity = {
       seq: -1, // sorts/leads before any real step (real seq ≥ 0)
       worker: items[0]?.worker ?? active.id, // reuse the lane so no worker chips appear
@@ -1378,7 +1389,9 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
     active.last_activity,
     active.source_task_id,
     active.inherited,
+    active.intent_id,
     sessionMeta,
+    t,
   ]);
 
   // seq of this session's most-recent TodoWrite call — for the Todo popover.
@@ -1533,7 +1546,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
       .catch((e) => {
         setInput(text); // restore so the user doesn't lose their text / attachments
         setAttachments(atts);
-        toast.error(t("Send failed: {error}", { error: (e as Error).message || t("please retry later") }));
+        toast.error(t("toasts.sendFailed", { message: (e as Error).message || t("errors.retryLater") }));
       })
       .finally(() => setSending(false));
   }
@@ -1544,7 +1557,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
     if (side.handleCommand(message, () => setWorkerMessage(""))) return;
     if (!intentId || active.inherited || active.status !== "paused" || workerMessageSending || !message) return;
     if (workerMessageCharCount(message) > MAX_WORKER_MESSAGE_CHARS) {
-      toast.error(t("Messages cannot exceed {count} characters", { count: MAX_WORKER_MESSAGE_CHARS }));
+      toast.error(t("toasts.messageTooLong", { max: MAX_WORKER_MESSAGE_CHARS }));
       return;
     }
     const requestId = workerMessageRequestId || newWorkerMessageRequestID();
@@ -1558,10 +1571,10 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         patchIntentState(intentId, result.state);
         setWorkerMessage("");
         setWorkerMessageRequestId("");
-        toast.success(t("Message sent to Worker #{id}; execution resumed immediately", { id: intentId }));
+        toast.success(t("toasts.workerMessageSent", { id: intentId }));
       })
       .catch((error) => {
-        toast.error(t("Send failed: {error}", { error: (error as Error).message || t("please retry later") }));
+        toast.error(t("toasts.sendFailed", { message: (error as Error).message || t("errors.retryLater") }));
       })
       .finally(() => setWorkerMessageSending(false));
   }
@@ -1607,7 +1620,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                 <ChevronDownIcon
                   className={cn("size-3.5 shrink-0 transition-transform lg:hidden", !listOpen && "-rotate-90")}
                 />
-                <span className="shrink-0">{t("Sessions")}</span>
+                <span className="shrink-0">{t("sessionList.title")}</span>
                 {!listOpen && (
                   <>
                     <span className="min-w-0 truncate text-foreground lg:hidden" title={activeDisplayTitle}>
@@ -1627,21 +1640,17 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                     "inline-flex items-center gap-1 text-[10px]",
                     sseLive ? "text-emerald-500" : "text-amber-500",
                   )}
-                  title={
-                    sseLive
-                      ? t("Live connection healthy")
-                      : t("Live connection lost, reconnecting automatically (history still visible)")
-                  }
+                  title={sseLive ? t("sse.healthy") : t("sse.lost")}
                 >
                   {sseLive ? (
                     <>
                       <span className="size-1 animate-pulse rounded-full bg-emerald-500" />
-                      {t("Live")}
+                      {t("sse.live")}
                     </>
                   ) : (
                     <>
                       <WifiOffIcon className="size-3" />
-                      {t("Reconnecting")}
+                      {t("sse.reconnecting")}
                     </>
                   )}
                 </span>
@@ -1651,7 +1660,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
               <Tooltip>
                 <TooltipTrigger asChild>
                   <div className="mt-2 flex min-w-0 flex-wrap items-center gap-1 text-xs text-muted-foreground">
-                    <span>{t("Task total")}</span>
+                    <span>{t("taskTotal.label")}</span>
                     <span>·</span>
                     <TokenMetrics
                       input={taskTokens.input_tokens}
@@ -1661,11 +1670,11 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                   </div>
                 </TooltipTrigger>
                 <TooltipContent>
-                  {t("Input {input} · Output {output} · Cache read {cacheRead} · Cache write {cacheWrite}", {
-                    input: taskTokens.input_tokens.toLocaleString(intlLocale),
-                    output: taskTokens.output_tokens.toLocaleString(intlLocale),
-                    cacheRead: taskTokens.cache_read_tokens.toLocaleString(intlLocale),
-                    cacheWrite: taskTokens.cache_write_tokens.toLocaleString(intlLocale),
+                  {t("tokens.breakdown", {
+                    input: taskTokens.input_tokens.toLocaleString(),
+                    output: taskTokens.output_tokens.toLocaleString(),
+                    cacheRead: taskTokens.cache_read_tokens.toLocaleString(),
+                    cacheWrite: taskTokens.cache_write_tokens.toLocaleString(),
                   })}
                 </TooltipContent>
               </Tooltip>
@@ -1688,14 +1697,14 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                   <div key={role} className="flex flex-col gap-0.5">
                     <div className="flex items-center gap-1.5 px-2 py-1 text-xs font-medium text-muted-foreground">
                       <Meta.icon className="size-3.5" />
-                      {Meta.label}
+                      {t.has(`roles.${role}`) ? t(`roles.${role}`) : Meta.label}
                       {role === "mainagent" && (
                         <button
                           type="button"
                           onClick={() => setConfirmNewMain(true)}
                           disabled={creatingMain}
-                          title={t("New main agent session (clears context, task state preserved)")}
-                          aria-label={t("New main agent session")}
+                          title={t("mainSession.newTitle")}
+                          aria-label={t("mainSession.newAria")}
                           className="ml-auto flex items-center gap-1 rounded px-1.5 py-0.5 text-[11px] text-muted-foreground hover:bg-accent/60 hover:text-foreground disabled:opacity-50"
                         >
                           {creatingMain ? (
@@ -1703,7 +1712,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                           ) : (
                             <PlusIcon className="size-3.5" />
                           )}
-                          {t("New")}
+                          {t("mainSession.new")}
                         </button>
                       )}
                     </div>
@@ -1714,7 +1723,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                           key={s.id}
                           s={s}
                           active={s.id === activeId}
-                          displayTitle={meta?.title ?? s.title}
+                          displayTitle={meta?.title ?? sessionDisplayTitle(t, s)}
                           hasPending={hasPendingForSession(s)}
                           unread={store[keyForSession(s)]?.unread}
                           onClick={() => {
@@ -1744,14 +1753,14 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                         ) : (
                           <RotateCwIcon className="size-3.5" />
                         )}
-                        {t("Load earlier workers")}
+                        {t("workerList.loadEarlier")}
                       </button>
                     )}
                   </div>
                 );
               })}
               {mainLoaded && !workerSessions.length && (
-                <div className="px-2 py-1 text-xs text-muted-foreground">{t("No running worker sessions.")}</div>
+                <div className="px-2 py-1 text-xs text-muted-foreground">{t("workerList.empty")}</div>
               )}
             </div>
           </ScrollArea>
@@ -1762,7 +1771,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
           side={side}
           label={
             active.role === "worker"
-              ? `${t("Worker #{id}", { id: active.intent_id ?? "" })} · ${activeDisplayTitle}`
+              ? t("workspace.workerLabel", { id: active.intent_id ?? "", title: activeDisplayTitle })
               : activeDisplayTitle
           }
         >
@@ -1773,7 +1782,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                 const meta = isWorker ? sessionMeta.get(active.id) : undefined;
                 // Worker: the intent moved into the transcript as a message, so the
                 // header shows a stable generic label (intent JSON stays on hover).
-                const title = isWorker ? t("Worker execution session") : active.title;
+                const title = isWorker ? t("header.workerSession") : sessionDisplayTitle(t, active);
                 const titleEl = <span className="min-w-0 truncate text-sm font-medium">{title}</span>;
                 return meta?.json ? (
                   <Tooltip>
@@ -1795,37 +1804,37 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                       className="max-w-28 shrink-0 font-normal"
                       aria-label={
                         activeResolution.available
-                          ? t("Current config: {name}", { name: resolutionLabel(activeResolution) })
-                          : t("Model unavailable")
+                          ? t("resolution.currentConfig", { label: resolutionLabel(t, activeResolution) })
+                          : t("resolution.unavailable")
                       }
                     >
                       <span className="truncate">
-                        {activeResolution.available ? resolutionLabel(activeResolution) : t("Model unavailable")}
+                        {activeResolution.available
+                          ? resolutionLabel(t, activeResolution)
+                          : t("resolution.unavailable")}
                       </span>
                     </Badge>
                   </TooltipTrigger>
                   <TooltipContent side="bottom" className="max-w-xs [overflow-wrap:anywhere]">
                     {activeResolution.available
-                      ? [resolutionLabel(activeResolution), activeResolution.model].filter(Boolean).join(" / ")
-                      : activeResolution.reason || t("No available LLM config")}
+                      ? [resolutionLabel(t, activeResolution), activeResolution.model].filter(Boolean).join(" / ")
+                      : activeResolution.reason || t("resolution.noConfig")}
                   </TooltipContent>
                 </Tooltip>
               )}
               {activeAssets && activeAssets.length > 0 && <WorkerAssetBadge assets={activeAssets} />}
               {active.inherited && active.source_task_id && (
-                <Badge variant="outline">
-                  {t("Source task #{id} · read-only history", { id: active.source_task_id })}
-                </Badge>
+                <Badge variant="outline">{t("header.sourceTask", { id: active.source_task_id })}</Badge>
               )}
               {active.live && (
                 <span className="inline-flex items-center gap-1 rounded bg-blue-500/15 px-1.5 py-0.5 text-[10px] font-medium text-blue-600 dark:text-blue-400">
                   <span className="size-1 animate-pulse rounded-full bg-blue-500" />
-                  {t("Live")}
+                  {t("header.live")}
                 </span>
               )}
               {activeState?.hasMore && (
-                <span className="text-[10px] text-muted-foreground" title={t("Scroll up to load earlier history")}>
-                  ↑ {t("Earlier history")}
+                <span className="text-[10px] text-muted-foreground" title={t("header.earlierHistoryTitle")}>
+                  {t("header.earlierHistory")}
                 </span>
               )}
               <div className="ml-auto flex min-w-0 max-w-full items-center justify-end gap-x-3 gap-y-1 text-xs text-muted-foreground max-sm:w-full max-sm:flex-wrap">
@@ -1851,22 +1860,22 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                       </span>
                     </TooltipTrigger>
                     <TooltipContent>
-                      {t("Input {input} · Output {output} · Cache read {cacheRead} · Cache write {cacheWrite}", {
-                        input: activeTokens.input_tokens.toLocaleString(intlLocale),
-                        output: activeTokens.output_tokens.toLocaleString(intlLocale),
-                        cacheRead: activeTokens.cache_read_tokens.toLocaleString(intlLocale),
-                        cacheWrite: activeTokens.cache_write_tokens.toLocaleString(intlLocale),
+                      {t("tokens.breakdown", {
+                        input: activeTokens.input_tokens.toLocaleString(),
+                        output: activeTokens.output_tokens.toLocaleString(),
+                        cacheRead: activeTokens.cache_read_tokens.toLocaleString(),
+                        cacheWrite: activeTokens.cache_write_tokens.toLocaleString(),
                       })}
                     </TooltipContent>
                   </Tooltip>
                 )}
                 {runDuration != null && (
-                  <span className="inline-flex items-center gap-1" title={t("Run duration (first step → last step)")}>
+                  <span className="inline-flex items-center gap-1" title={t("header.runDurationTitle")}>
                     <ClockIcon className="size-3" />
                     {fmtDuration(runDuration)}
                   </span>
                 )}
-                {isMain && <span>{t("Interactive")}</span>}
+                {isMain && <span>{t("header.interactive")}</span>}
               </div>
             </div>
             {(() => {
@@ -1876,15 +1885,11 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                 <div className="flex items-start gap-2 border-b border-destructive/30 bg-destructive/5 px-4 py-2.5 text-xs">
                   <Trash2Icon className="mt-0.5 size-3.5 shrink-0 text-destructive" />
                   <div className="min-w-0">
-                    <span className="font-medium text-destructive">{t("This intent was deleted by the user")}</span>
-                    <span className="text-muted-foreground">
-                      {t(
-                        "(execution stopped and the planner notified; the intent and its output are kept — view the history below)",
-                      )}
-                    </span>
+                    <span className="font-medium text-destructive">{t("deletedBanner.title")}</span>
+                    <span className="text-muted-foreground">{t("deletedBanner.detail")}</span>
                     {dm.deleteReason && (
                       <p className="mt-1 break-words text-foreground">
-                        <span className="text-muted-foreground">{t("Deletion reason:")} </span>
+                        <span className="text-muted-foreground">{t("deletedBanner.reason")}</span>
                         {dm.deleteReason}
                       </p>
                     )}
@@ -1911,25 +1916,25 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                 {activeState?.loadingMore && (
                   <div className="flex items-center justify-center gap-2 pb-2 text-xs text-muted-foreground">
                     <Loader2Icon className="size-3.5 animate-spin" />
-                    {t("Loading earlier history…")}
+                    {t("transcript.loadingEarlier")}
                   </div>
                 )}
                 {showLoader ? (
                   <div className="flex items-center gap-2 pl-9 text-xs text-muted-foreground">
                     <Loader2Icon className="size-3.5 animate-spin" />
-                    {t("Loading activity stream…")}
+                    {t("transcript.loadingStream")}
                   </div>
                 ) : activeState?.error ? (
                   <div className="flex items-center gap-2 pl-9 text-xs text-red-500">
                     <CircleXIcon className="size-3.5" />
-                    {t("Failed to load: {error}", { error: activeState.error })}
+                    {t("transcript.loadFailed", { error: activeState.error ?? "" })}
                     <Button
                       size="sm"
                       variant="ghost"
                       className="h-6 px-2 text-xs"
                       onClick={() => loadSession(activeKey)}
                     >
-                      {t("Retry")}
+                      {t("transcript.retry")}
                     </Button>
                   </div>
                 ) : activity.length ? (
@@ -1942,9 +1947,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                   />
                 ) : (
                   <div className="pl-9 text-xs text-muted-foreground">
-                    {isMain
-                      ? t("No conversation yet. Message the main agent below to steer exploration or step into the flow.")
-                      : t("No activity records.")}
+                    {isMain ? t("transcript.emptyMain") : t("transcript.emptyOther")}
                   </div>
                 )}
               </div>
@@ -1966,7 +1969,7 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                           type="button"
                           className="ml-0.5 text-muted-foreground hover:text-foreground"
                           onClick={() => setAttachments((p) => p.filter((x) => x.path !== a.path))}
-                          title={t("Remove")}
+                          title={t("attachments.remove")}
                         >
                           <XIcon className="size-3" />
                         </button>
@@ -1985,12 +1988,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                   <MentionTextarea
                     inputGroup
                     rows={1}
-                    aria-label={t("Message the main agent")}
-                    placeholder={
-                      mainBusy
-                        ? t("The main agent is running; type /btw to ask a side question…")
-                        : t("Message the main agent; @ to reference findings, assets, and more…")
-                    }
+                    aria-label={t("composer.aria")}
+                    placeholder={mainBusy ? t("composer.placeholderBusy") : t("composer.placeholder")}
                     value={input}
                     disabled={sending}
                     onValueChange={setInput}
@@ -2007,13 +2006,13 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                       variant="ghost"
                       onClick={() => fileInputRef.current?.click()}
                       disabled={mainBusy || uploading}
-                      title={t("Upload file")}
-                      aria-label={t("Upload file")}
+                      title={t("composer.uploadFile")}
+                      aria-label={t("composer.uploadFile")}
                     >
                       {uploading ? <Loader2Icon className="animate-spin" /> : <PaperclipIcon />}
                     </InputGroupButton>
                     {mainBusy && isBtwCommand(input) && (
-                      <InputGroupButton size="icon-xs" onClick={send} aria-label={t("Send side question")}>
+                      <InputGroupButton size="icon-xs" onClick={send} aria-label={t("composer.sendSideQuestion")}>
                         <ArrowUpIcon />
                       </InputGroupButton>
                     )}
@@ -2024,8 +2023,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                         variant="destructive"
                         onClick={stop}
                         disabled={stopping}
-                        title={t("Stop current execution")}
-                        aria-label={t("Stop current execution")}
+                        title={t("composer.stopExecution")}
+                        aria-label={t("composer.stopExecution")}
                       >
                         {stopping ? <Loader2Icon className="animate-spin" /> : <SquareIcon />}
                       </InputGroupButton>
@@ -2036,8 +2035,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                         variant="default"
                         onClick={send}
                         disabled={(!input.trim() && attachments.length === 0) || sending}
-                        title={t("Send message")}
-                        aria-label={t("Send message")}
+                        title={t("composer.sendMessage")}
+                        aria-label={t("composer.sendMessage")}
                       >
                         {sending ? <Loader2Icon className="animate-spin" /> : <ArrowUpIcon />}
                       </InputGroupButton>
@@ -2053,10 +2052,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                   <MentionTextarea
                     inputGroup
                     rows={1}
-                    aria-label={t("Message Worker #{id}", { id: active.intent_id ?? "" })}
-                    placeholder={t("Message Worker #{id}; @ to reference records and adjust execution direction…", {
-                      id: active.intent_id ?? "",
-                    })}
+                    aria-label={t("workerComposer.aria", { id: active.intent_id ?? "" })}
+                    placeholder={t("workerComposer.placeholder", { id: active.intent_id ?? "" })}
                     value={workerMessage}
                     onValueChange={(value) => {
                       setWorkerMessage(value);
@@ -2081,7 +2078,11 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                       {workerMessageCharCount(workerMessage)}/{MAX_WORKER_MESSAGE_CHARS}
                     </span>
                     {active.status === "running" && isBtwCommand(workerMessage) && (
-                      <InputGroupButton size="icon-xs" onClick={sendWorkerChat} aria-label={t("Send side question")}>
+                      <InputGroupButton
+                        size="icon-xs"
+                        onClick={sendWorkerChat}
+                        aria-label={t("composer.sendSideQuestion")}
+                      >
                         <ArrowUpIcon />
                       </InputGroupButton>
                     )}
@@ -2092,8 +2093,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                         variant="destructive"
                         onClick={() => void controlWorker(active, "pause")}
                         disabled={controllingIntent === active.intent_id}
-                        title={t("Pause current worker")}
-                        aria-label={t("Pause current worker")}
+                        title={t("workerComposer.pause")}
+                        aria-label={t("workerComposer.pause")}
                       >
                         {controllingIntent === active.intent_id ? (
                           <Loader2Icon className="animate-spin" />
@@ -2109,13 +2110,13 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                           variant="ghost"
                           onClick={() => void controlWorker(active, "resume")}
                           disabled={controllingIntent === active.intent_id || workerMessageSending}
-                          title={t("Continue execution directly without sending a message")}
-                          aria-label={t("Continue execution directly")}
+                          title={t("workerComposer.continueTitle")}
+                          aria-label={t("workerComposer.continueAria")}
                         >
                           {controllingIntent === active.intent_id ? (
                             <Loader2Icon className="animate-spin" />
                           ) : (
-                            t("Continue directly")
+                            t("workerComposer.continue")
                           )}
                         </InputGroupButton>
                         <InputGroupButton
@@ -2127,8 +2128,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                             !workerMessage.trim() ||
                             workerMessageCharCount(workerMessage) > MAX_WORKER_MESSAGE_CHARS
                           }
-                          title={t("Send message")}
-                          aria-label={t("Send message")}
+                          title={t("composer.sendMessage")}
+                          aria-label={t("composer.sendMessage")}
                         >
                           {workerMessageSending ? <Spinner /> : <ArrowUpIcon />}
                         </InputGroupButton>
@@ -2159,21 +2160,11 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         >
           <AlertDialogContent className="max-w-[min(32rem,calc(100vw-2rem))]">
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("Delete Worker #{id}?", { id: cancelIntent?.intent_id ?? "" })}</AlertDialogTitle>
+              <AlertDialogTitle>{t("deleteDialog.title", { id: cancelIntent?.intent_id ?? "" })}</AlertDialogTitle>
               <AlertDialogDescription className="break-words whitespace-normal">
-                {deleteMode === "hard" ? (
-                  boldMarkup(
-                    t(
-                      "**Hard delete** physically removes this intent and the downstream nodes **supported solely by it** (cascading to the leaves to avoid orphaned data); shared nodes, goals, and the task's root facts are kept. **This action is irreversible.** The planner is notified of the deletion and re-plans accordingly.",
-                    ),
-                  )
-                ) : (
-                  boldMarkup(
-                    t(
-                      '**Soft delete** marks the intent as "deleted" and records the reason; the intent node, execution records, registered facts, and findings **are all kept**. The planner receives "intent deleted by user + reason" and re-plans accordingly.',
-                    ),
-                  )
-                )}
+                {deleteMode === "hard"
+                  ? t.rich("deleteDialog.hard", { b: (chunks) => <strong>{chunks}</strong> })
+                  : t.rich("deleteDialog.soft", { b: (chunks) => <strong>{chunks}</strong> })}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <div className="grid gap-3 py-1">
@@ -2186,8 +2177,8 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                     deleteMode === "soft" ? "border-primary bg-primary/5" : "hover:bg-accent",
                   )}
                 >
-                  <div className="font-medium">{t("Soft delete")}</div>
-                  <div className="text-xs text-muted-foreground">{t("Data kept, traceable")}</div>
+                  <div className="font-medium">{t("deleteDialog.softOption")}</div>
+                  <div className="text-xs text-muted-foreground">{t("deleteDialog.softHint")}</div>
                 </button>
                 <button
                   type="button"
@@ -2197,35 +2188,33 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
                     deleteMode === "hard" ? "border-destructive bg-destructive/5" : "hover:bg-accent",
                   )}
                 >
-                  <div className="font-medium">{t("Hard delete")}</div>
-                  <div className="text-xs text-muted-foreground">{t("Cascade removal, irreversible")}</div>
+                  <div className="font-medium">{t("deleteDialog.hardOption")}</div>
+                  <div className="text-xs text-muted-foreground">{t("deleteDialog.hardHint")}</div>
                 </button>
               </div>
               <div className="grid gap-2">
                 <label htmlFor="cancel-reason" className="text-sm font-medium">
-                  {t("Deletion reason (required)")}
+                  {t("deleteDialog.reasonLabel")}
                 </label>
                 <Textarea
                   id="cancel-reason"
                   value={cancelReason}
                   onChange={(e) => setCancelReason(e.target.value)}
-                  placeholder={t(
-                    "Explain why this intent is being deleted, e.g. wrong direction / goal obsolete / duplicate of another intent…",
-                  )}
+                  placeholder={t("deleteDialog.reasonPlaceholder")}
                   rows={3}
                   autoFocus
                 />
               </div>
             </div>
             <AlertDialogFooter>
-              <AlertDialogCancel>{t("Back")}</AlertDialogCancel>
+              <AlertDialogCancel>{t("deleteDialog.back")}</AlertDialogCancel>
               <AlertDialogAction
                 variant="destructive"
                 disabled={!cancelIntent || controllingIntent !== null || !cancelReason.trim()}
                 onClick={() => cancelIntent && void controlWorker(cancelIntent, "cancel", cancelReason, deleteMode)}
               >
                 {controllingIntent ? <Loader2Icon className="animate-spin" /> : <Trash2Icon />}
-                {deleteMode === "hard" ? t("Delete permanently") : t("Confirm delete")}
+                {deleteMode === "hard" ? t("deleteDialog.deletePermanently") : t("deleteDialog.confirmDelete")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>
@@ -2234,17 +2223,15 @@ export function SessionsTab({ taskId, taskPaused = false }: { taskId: string; ta
         <AlertDialog open={confirmNewMain} onOpenChange={(open) => !open && setConfirmNewMain(false)}>
           <AlertDialogContent className="max-w-[min(32rem,calc(100vw-2rem))]">
             <AlertDialogHeader>
-              <AlertDialogTitle>{t("Start a new session?")}</AlertDialogTitle>
+              <AlertDialogTitle>{t("newSessionDialog.title")}</AlertDialogTitle>
               <AlertDialogDescription className="break-words whitespace-normal">
-                {t(
-                  "The current session will be archived (you can switch back anytime) and the main agent continues with a clean context. The task's graph, assets, and goals are unaffected.",
-                )}
+                {t("newSessionDialog.description")}
               </AlertDialogDescription>
             </AlertDialogHeader>
             <AlertDialogFooter>
-              <AlertDialogCancel disabled={creatingMain}>{t("Cancel")}</AlertDialogCancel>
+              <AlertDialogCancel disabled={creatingMain}>{t("newSessionDialog.cancel")}</AlertDialogCancel>
               <AlertDialogAction disabled={creatingMain} onClick={() => void createMainSession()}>
-                {creatingMain ? t("Starting…") : t("Start new session")}
+                {creatingMain ? t("newSessionDialog.starting") : t("newSessionDialog.start")}
               </AlertDialogAction>
             </AlertDialogFooter>
           </AlertDialogContent>

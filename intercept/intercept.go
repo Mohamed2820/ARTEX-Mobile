@@ -211,9 +211,6 @@ type Interceptor struct {
 	// upstreamProxy reports whether target traffic leaves through an upstream
 	// egress proxy (nil = no). Injected by the server layer.
 	upstreamProxy func() bool
-	// toolProxy reports whether one tool's own configuration routes its traffic
-	// through a proxy (nil = no). Injected by the server layer.
-	toolProxy func(string) bool
 	// derivedExempt lists the endpoints of the platform's own services (nil =
 	// none). Injected by the server layer. See SetDerivedExemptions.
 	derivedExempt func() []string
@@ -234,15 +231,6 @@ type Interceptor struct {
 func (i *Interceptor) SetUpstreamProxyCheck(f func() bool) {
 	i.mu.Lock()
 	i.upstreamProxy = f
-	i.mu.Unlock()
-}
-
-// SetToolProxyCheck installs the function that reports whether a tool sends its
-// own traffic through a proxy. The proxy then chooses the address it connects
-// to, so a target approval for that call is name-only. Passing nil disables it.
-func (i *Interceptor) SetToolProxyCheck(f func(string) bool) {
-	i.mu.Lock()
-	i.toolProxy = f
 	i.mu.Unlock()
 }
 
@@ -765,20 +753,12 @@ func (i *Interceptor) SetRulesForTest(rules []db.InterceptRule) {
 func ruleMatches(r compiledRule, toolName string, input []byte) bool {
 	if r.MatchType == "argv" {
 		// Bash only, on the parsed command; match_target is always tool_input.
-		// Allow rules stay strictly limited to a single simple command with
-		// exact derived prefix and denylist enforcement. Deny and ask rules
-		// walk every call in a compound Bash command, stripping known wrappers
-		// and recursing into eval / shell -c payloads.
-		if r.Action == "allow" {
-			if CheckArgvAllow(r.argv) != nil {
-				return false
-			}
-			return r.MatchTarget == "tool_input" && argvRuleMatches(r.argv, toolName, input)
+		// The denylist neutralises allow rules only: an argv deny or ask rule
+		// for a denylisted program still matches.
+		if r.Action == "allow" && CheckArgvAllow(r.argv) != nil {
+			return false
 		}
-		if r.Action == "deny" || r.Action == "ask" {
-			return r.MatchTarget == "tool_input" && argvCompoundMatches(r.argv, toolName, input)
-		}
-		return false
+		return r.MatchTarget == "tool_input" && argvRuleMatches(r.argv, toolName, input)
 	}
 	var subject string
 	switch r.MatchTarget {

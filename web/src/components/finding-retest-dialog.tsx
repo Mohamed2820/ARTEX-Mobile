@@ -3,6 +3,7 @@
 import * as React from "react";
 
 import { RotateCcwIcon } from "lucide-react";
+import { useTranslations } from "next-intl";
 import { toast } from "sonner";
 
 import { Button } from "@/components/ui/button";
@@ -19,7 +20,6 @@ import { Spinner } from "@/components/ui/spinner";
 import { Textarea } from "@/components/ui/textarea";
 import { api } from "@/lib/api";
 import type { FindingRetest } from "@/lib/types";
-import { t } from "@/i18n";
 
 interface FindingRetestDialogProps {
   findingId: string;
@@ -34,6 +34,7 @@ export function FindingRetestDialog({ findingId, findingName, onClose, onStarted
   const [notes, setNotes] = React.useState("");
   const [submitting, setSubmitting] = React.useState(false);
   const submitLock = React.useRef(false);
+  const t = useTranslations("findingRetestDialog");
 
   async function start() {
     if (submitLock.current) return;
@@ -43,9 +44,9 @@ export function FindingRetestDialog({ findingId, findingName, onClose, onStarted
       const result = await api.startFindingRetest(findingId, notes.trim());
       onStarted?.(result.retest);
       onClose();
-      toast.success(result.created ? t("Retest started; click 'Retesting' to view the session") : t("This vulnerability is already being retested; view the existing session"));
+      toast.success(result.created ? t("toasts.started") : t("toasts.alreadyRunning"));
     } catch (e) {
-      toast.error(t("Failed to start retest: {error}", { error: (e as Error).message }));
+      toast.error(t("toasts.startError", { message: (e as Error).message }));
     } finally {
       submitLock.current = false;
       setSubmitting(false);
@@ -56,15 +57,15 @@ export function FindingRetestDialog({ findingId, findingName, onClose, onStarted
     <Dialog open onOpenChange={(open) => !open && !submitLock.current && onClose()}>
       <DialogContent>
         <DialogHeader>
-          <DialogTitle>{t("Retest vulnerability #{id}", { id: findingId })}</DialogTitle>
+          <DialogTitle>{t("title", { id: findingId })}</DialogTitle>
           <DialogDescription className="break-words">
             {findingName ? <span className="mb-2 block">{findingName}</span> : null}
-            {t('Retest Agent reads the original evidence and test constraints, then runs targeted verification in a separate session. When the retest completes successfully and confirms the fix, the vulnerability status automatically becomes "Fixed"; other verdicts keep the current status.')}
+            {t("agentDescription")}
           </DialogDescription>
         </DialogHeader>
         <FieldGroup>
           <Field data-disabled={submitting}>
-            <FieldLabel htmlFor={notesId}>{t("Notes (optional)")}</FieldLabel>
+            <FieldLabel htmlFor={notesId}>{t("notesLabel")}</FieldLabel>
             <Textarea
               id={notesId}
               value={notes}
@@ -72,18 +73,18 @@ export function FindingRetestDialog({ findingId, findingName, onClose, onStarted
               rows={4}
               disabled={submitting}
               onChange={(e) => setNotes(e.target.value)}
-              placeholder={t("e.g. verify the original endpoint with the original test account; fix version is v2.")}
+              placeholder={t("notesPlaceholder")}
             />
-            <FieldDescription>{t("Add the fix version, test conditions, or limitations of this run.")}</FieldDescription>
+            <FieldDescription>{t("notesDescription")}</FieldDescription>
           </Field>
         </FieldGroup>
         <DialogFooter>
           <Button variant="outline" disabled={submitting} onClick={onClose}>
-            {t("Cancel")}
+            {t("cancel")}
           </Button>
           <Button disabled={submitting} onClick={() => void start()}>
             {submitting ? <Spinner data-icon="inline-start" /> : <RotateCcwIcon data-icon="inline-start" />}
-            {submitting ? t("Creating…") : t("Start retest")}
+            {submitting ? t("creating") : t("start")}
           </Button>
         </DialogFooter>
       </DialogContent>
