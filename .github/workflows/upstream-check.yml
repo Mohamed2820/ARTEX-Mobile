@@ -1,6 +1,12 @@
 name: upstream-drift-check
 
 on:
+  push:
+    branches: [main]
+    paths:
+      - UPSTREAM.md
+      - docs/upstream/refs-manifest.tsv
+      - .github/workflows/upstream-check.yml
   schedule:
     - cron: "17 10 * * 1"
   workflow_dispatch:
