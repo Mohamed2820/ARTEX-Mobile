@@ -124,3 +124,17 @@ A separate `npm audit --omit=dev` check was added to distinguish production depe
 ## Remediation status
 
 The repository/workflow risks described as fixed above were changed in this repository. The Go and npm dependency findings are **open remediation items**. Do not describe the inherited ARTEX codebase as vulnerability-free or release-ready until those upgrades are made and their tests pass.
+
+
+### Added — full-history secret scan
+
+A `secret-history-scan` workflow now checks out complete Git history (`fetch-depth: 0`) and runs Gitleaks v3 on pushes to `main`, weekly, and on manual dispatch. The first run was queued when this review was finalized; no clean result is claimed yet. GitHub also makes Secret Scanning available for public repositories, but the connected GitHub interface did not expose secret-scanning alerts/settings for independent verification.
+
+### Latest repository foundation checks
+
+- The latest main-branch repository-integrity run completed successfully.
+- The upstream drift check completed successfully and matched the recorded upstream baseline.
+- Integrity runs on all four development branches passed immediately before the final documentation-only synchronization; the latest runs after that synchronization were queued.
+- The latest full CI, CodeQL, dependency-audit and Gitleaks jobs were not all complete at the time of final review.
+
+The repository bootstrap is therefore reproducible and its Git integrity is verified, but branch protection and full application security acceptance remain open.
