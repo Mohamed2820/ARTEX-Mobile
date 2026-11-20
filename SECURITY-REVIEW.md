@@ -30,9 +30,9 @@ Do not add any checkout or execution of the pull request head to this privileged
 - The bot workflow retains only the write permissions needed for issues and pull requests, plus read-only contents access.
 - The new integrity and upstream-drift workflows request `contents: read` only.
 
-### Residual — mutable third-party Action references
+### Fixed — third-party GitHub Action references pinned
 
-Inherited workflows still use version tags such as `actions/checkout@v4`, `actions/setup-go@v5` and other Action tags. Tags are less immutable than full commit-SHA pins. Dependabot is configured to check GitHub Actions, Go modules and npm dependencies weekly; the inherited Action references have not all been converted to commit-SHA pins in this pass.
+All 39 external Action references in the default-branch workflows were checked and pinned to immutable 40-character commit SHAs, including checkout, setup-go, setup-node, setup-python, CodeQL, Docker build/publish actions, release actions and Gitleaks. The provenance attestation action was already pinned. Dependabot remains configured to check Actions and dependencies weekly.
 
 ### Residual — external LLM data sharing in the repository bot
 
