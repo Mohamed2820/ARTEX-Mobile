@@ -41,7 +41,11 @@ These rules should be enabled in GitHub **Settings → Rules → Rulesets** (or 
 - Block force pushes and deletion after work begins.
 - Prefer pull requests for integration into `main`.
 
-**Operational note:** the connected GitHub interface can read repository metadata and files, create branches and commits, and inspect workflow runs. It does not expose a write operation for GitHub branch-protection rulesets. The rules above are documented requirements, not a claim that GitHub has already enforced them. Confirm their status in repository Settings before calling branch protection complete.
+Importable ruleset files are provided:
+- `docs/github-rulesets/source-main.json` locks the source snapshot against updates, deletion and force pushes.
+- `docs/github-rulesets/main.json` requires pull requests for main, blocks deletion and force pushes, and does not require an approving review (to avoid a single-maintainer deadlock).
+
+To activate them, open repository **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, import each JSON file, review it, and create it. The rulesets are not active until imported. After the first successful CI run, add the repository's verified CI check names as required status checks to the main ruleset.
 
 ## Security and automation
 
