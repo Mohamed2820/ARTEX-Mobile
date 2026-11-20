@@ -43,5 +43,7 @@ jobs:
           cache: npm
           cache-dependency-path: web/package-lock.json
       - run: npm ci
-      - name: Audit locked dependencies
+      - name: Audit production dependencies only
+        run: npm audit --omit=dev --audit-level=high
+      - name: Audit all locked dependencies (including development tools)
         run: npm audit --audit-level=high
