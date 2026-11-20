@@ -43,6 +43,7 @@ When `DEEPSEEK_API_KEY` is configured, the bot sends issue titles/bodies, reposi
 The repository rulesets API currently returns an empty list. Importable configurations are stored at:
 - `docs/github-rulesets/source-main.json`
 - `docs/github-rulesets/main.json`
+- `docs/github-rulesets/development-branches.json` protects `development`, `android-port`, `integration/mcp` and `cloud-runtime` from direct updates, deletion and force pushes.
 
 They must still be imported from GitHub **Settings → Rules → Rulesets → New ruleset → Import a ruleset**. Until then, GitHub does not enforce the documented branch rules. The classic branch-protection read endpoint was not accessible to the connected integration, so no claim is made about classic rules.
 
