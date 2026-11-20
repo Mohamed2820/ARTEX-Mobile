@@ -172,7 +172,7 @@ $(repo_context)")
     post_comment "$number" "$answer"
     ;;
 
-  pull_request)
+  pull_request|pull_request_target)
     number=$(jq -r '.pull_request.number' <<<"$ev")
     title=$(jq -r '.pull_request.title' <<<"$ev")
     body=$(jq -r '.pull_request.body // ""' <<<"$ev")
