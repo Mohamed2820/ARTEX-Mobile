@@ -222,3 +222,24 @@ func TestProveGoalRefusesTargetResponseFact(t *testing.T) {
 		t.Fatalf("finding: IsError=%v state=%q GoalMet=%v %q", res.IsError, nodeState(t, s, goalB), tsx.GoalMet, res.Flatten())
 	}
 }
+
+func TestProveGoalRefusesFalsePositiveFinding(t *testing.T) {
+	s := guardTaskStore(t)
+	goal := addGuardNode(t, s, db.KindGoal, map[string]any{"text": "get admin"}, "open")
+	fp := addGuardNode(t, s, db.KindFinding, map[string]any{"summary": "banner said admin", "status": "false_positive"}, "confirmed")
+	ok := addGuardNode(t, s, db.KindFinding, map[string]any{"summary": "admin session works", "status": "confirmed"}, "confirmed")
+	tsx := NewToolSet(s, "planner")
+	prove := func(ev int64) actool.Result {
+		return callGuardTool(t, tsx.proveGoal(), `{"goal_id":`+strconv.FormatInt(goal, 10)+`,"evidence_id":`+strconv.FormatInt(ev, 10)+`,"reason":"x"}`)
+	}
+	res := prove(fp)
+	if !res.IsError || !strings.Contains(res.Flatten(), "false_positive") || !strings.Contains(res.Flatten(), "stays open") {
+		t.Fatalf("false_positive finding: want a refusal, got IsError=%v %q", res.IsError, res.Flatten())
+	}
+	if st := nodeState(t, s, goal); st != "open" || tsx.GoalMet {
+		t.Fatalf("false_positive finding: goal state %q GoalMet=%v, want open/false", st, tsx.GoalMet)
+	}
+	if res := prove(ok); res.IsError || nodeState(t, s, goal) != "met" {
+		t.Fatalf("confirmed finding: IsError=%v state=%q %q", res.IsError, nodeState(t, s, goal), res.Flatten())
+	}
+}
