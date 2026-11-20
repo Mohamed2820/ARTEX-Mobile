@@ -55,3 +55,29 @@ The original upstream `SECURITY.md` is preserved verbatim at `docs/upstream/SECU
 Repository integrity and upstream-drift workflows were added. Their actual GitHub Actions conclusions must be checked after GitHub finishes running them. A queued or in-progress run is not a pass.
 
 No destructive operations, credential extraction, external target scanning, or unauthorized exploitation were performed.
+
+
+### Added — static analysis and dependency audits
+
+- Added CodeQL analysis for Go, JavaScript/TypeScript and Python, using the currently supported CodeQL Action v4. The first full CodeQL run is configured but was still queued at the time of this update.
+- Added a Go vulnerability database audit using `govulncheck`.
+- Added an npm audit job for the locked web dependencies; it fails on high-severity findings or above.
+- Added weekly Dependabot update checks and capped each ecosystem at three open update PRs to avoid flooding CI with a large batch.
+
+The Go and npm audit jobs had been queued and their conclusions were not yet available at the time of this update. A queued run is not evidence of a clean scan.
+
+### Verified repository-integrity results
+
+GitHub Actions completed the repository-integrity check successfully on the following development branches:
+- `development`
+- `android-port`
+- `integration/mcp`
+- `cloud-runtime`
+
+The check also passed on `main` after the import-manifest correction. The last manifest inspection showed all 188 imported upstream refs (184 branches plus 4 tags) present with matching object IDs, while `source/main` remained at the recorded upstream commit.
+
+### Remaining limitations
+
+- The repository rulesets are still not active; the Rulesets API returned an empty list. The two JSON configurations must be imported through the GitHub repository Settings UI by an account administrator.
+- The full CI, CodeQL and dependency-audit runs on the final HEAD had not all completed at the time of this review.
+- No running ARTEX deployment, Android application, scanner integration, or remote Linux agent was available for authenticated/unauthenticated DAST, API abuse testing, Android IPC testing, or end-to-end exploitation. This report therefore must not be represented as a complete penetration test of the ARTEX application.
