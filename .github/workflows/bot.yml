@@ -21,6 +21,7 @@ jobs:
     if: >
       github.event_name == 'issues' ||
       (github.actor != 'BaaRai' &&
+       github.actor != 'Mohamed2820' &&
        github.actor != 'github-actions[bot]' &&
        github.actor != 'dependabot[bot]')
     runs-on: ubuntu-latest
