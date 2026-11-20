@@ -81,3 +81,46 @@ The check also passed on `main` after the import-manifest correction. The last m
 - The repository rulesets are still not active; the Rulesets API returned an empty list. The two JSON configurations must be imported through the GitHub repository Settings UI by an account administrator.
 - The full CI, CodeQL and dependency-audit runs on the final HEAD had not all completed at the time of this review.
 - No running ARTEX deployment, Android application, scanner integration, or remote Linux agent was available for authenticated/unauthenticated DAST, API abuse testing, Android IPC testing, or end-to-end exploitation. This report therefore must not be represented as a complete penetration test of the ARTEX application.
+
+
+## Vulnerability scan findings
+
+### High priority — Go dependency and toolchain findings
+
+The first `govulncheck` execution on the imported application code reported two vulnerabilities with call paths in the ARTEX program:
+
+1. **GO-2026-6865 / CVE-2026-116591 — `github.com/klauspost/compress`**
+   - Locked version: `v1.18.6`.
+   - Fixed version: `v1.20.2`.
+   - govulncheck reported reachable symbols through the egress transport's compression/decompression path.
+   - Upgrade the dependency and run the full Go test suite before release.
+
+2. **GO-2026-6859 / CVE-2026-97054 — Go standard library `net/http`**
+   - CI used Go `1.26.10`.
+   - Fixed release: Go `1.26.11`.
+   - The issue is a conditional HTTP/1 server crash/race involving `MaxBytesReader`/ `MaxBytesHandler` when request-body reads race with response-header writes. govulncheck reported application call paths to `net/http` symbols; it did not prove that the exact vulnerable concurrency condition is reachable in a live request.
+   - Upgrade the build toolchain to at least Go `1.26.11`, then rerun govulncheck and the full suite.
+
+These are dependency/toolchain vulnerability findings, not successful exploit demonstrations.
+
+### High/Critical — Web dependency audit
+
+The initial `npm audit` run reported **21 vulnerabilities: 1 critical, 12 high and 8 moderate** in the lockfile.
+
+Notable findings:
+- **GHSA-jqcg-44mw-7w3h / CVE-2026-90711 — `proxy-addr@2.0.7`**, fixed in `2.0.8`. The advisory describes IP spoofing when an application configures an IPv4-mapped IPv6 trust subnet with an IPv4-sized prefix. The current lockfile marks this package as a development dependency, pulled indirectly through Express → the MCP SDK → the `shadcn` development tool. This reduces its production exposure, but the vulnerable package remains installed in developer/CI environments. The condition was not dynamically tested.
+- `zod@4.4.3` is a direct web dependency and is below the patched version `4.6.6` identified by the audit.
+- `source-map-js@1.2.1` and `baseline-browser-mapping@2.10.40` were also flagged; the lockfile does not mark these entries as development-only.
+- Other affected packages identified in the audit include `hono`, `ip-address`, `js-yaml`, `undici`, `systeminformation`, `body-parser`, `qs`, `brace-expansion`, `browserslist`, `fast-uri`, and `postcss-selector-parser`.
+
+A separate `npm audit --omit=dev` check was added to distinguish production dependencies from development tools. Its final run had not completed at the time this report was updated. No bulk `npm audit fix` was applied, because dependency upgrades may introduce breaking changes and need their own review and test cycle.
+
+### CodeQL and integrity run results
+
+- CodeQL completed successfully on the application code for Go, JavaScript/TypeScript and Python in run [44731658277](https://github.com/Mohamed2820/ARTEX-Mobile/actions/runs/44731658277). This confirms the scan jobs executed; it is not a claim that no CodeQL alerts exist.
+- Repository-integrity passed on the current main branch and on the four development branches, including the final `android-port` check [44732138201](https://github.com/Mohamed2820/ARTEX-Mobile/actions/runs/44732138201).
+- The latest full CI and the latest split production/development dependency-audit jobs were still queued; earlier dependency-audit runs failed because the scanner found the findings above.
+
+## Remediation status
+
+The repository/workflow risks described as fixed above were changed in this repository. The Go and npm dependency findings are **open remediation items**. Do not describe the inherited ARTEX codebase as vulnerability-free or release-ready until those upgrades are made and their tests pass.
