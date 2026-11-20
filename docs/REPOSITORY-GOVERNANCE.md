@@ -46,7 +46,7 @@ Importable ruleset files are provided:
 - `docs/github-rulesets/main.json` requires pull requests for main, blocks deletion and force pushes, and does not require an approving review (to avoid a single-maintainer deadlock).
 - `docs/github-rulesets/development-branches.json` requires pull requests for the four development branches and blocks deletion and force pushes.
 
-To activate them, open repository **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, import each JSON file, review it, and create it. The rulesets are not active until imported. After the first successful CI run, add the repository's verified CI check names as required status checks to the main ruleset.
+To activate them, open repository **Settings → Rules → Rulesets → New ruleset → Import a ruleset**, import each JSON file, review it, and create it. The rulesets are not active until imported. After the first full successful check run, the `main.json` ruleset was populated with these verified required checks: `go`, `go-stable`, `shell`, `python`, `web`, `CodeQL (go)`, `CodeQL (python)`, `CodeQL (javascript-typescript)`, `Go vulnerability database check`, `Web dependency audit`, and `Verify imported Git refs and source snapshot`. These checks run on pull requests targeting `main`.
 
 ## Security and automation
 
