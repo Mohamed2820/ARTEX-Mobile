@@ -57,6 +57,13 @@ jobs:
           git -C "$repo" cat-file -e refs/heads/main:scripts/configure-upstream.sh
           git -C "$repo" cat-file -e refs/heads/main:docs/upstream/refs-manifest.tsv
 
+          for ruleset in docs/github-rulesets/*.json; do
+            jq -e '.target == "branch" and .enforcement == "active" and (.rules | type == "array")' "$ruleset" >/dev/null
+          done
+          jq -e '.conditions.ref_name.include == ["refs/heads/source/main"]' docs/github-rulesets/source-main.json >/dev/null
+          jq -e '(.conditions.ref_name.include | index("refs/heads/main")) != null' docs/github-rulesets/main.json >/dev/null
+          jq -e '(.conditions.ref_name.include | index("refs/heads/android-port")) != null and (.conditions.ref_name.include | index("refs/heads/integration/mcp")) != null' docs/github-rulesets/development-branches.json >/dev/null
+
           while IFS=$'\t' read -r ref expected; do
             [[ -z "$ref" || "$ref" == \#* ]] && continue
             actual="$(git -C "$repo" rev-parse --verify "$ref")"
